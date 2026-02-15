@@ -12,3 +12,13 @@
 - Added mileage into generation context via `extra` payload text.
 - Bumped test UI version and cache-bust to `0.17`.
 - Added documented versioning rule: always bump versions with major `+0.1` and minor `+0.01` steps.
+
+## v0.18-test
+- Hardened warranty formatter enforcement so label-style model output is normalized before final return.
+- Strips inline headers like `Verification:`, `Diagnosis:`, and `Root cause:` from model sections.
+- Enforces `Root cause -` label format in final warranty output.
+- Preserves mandatory metadata block in warranty output with defaults when missing:
+  `Causal Part: Not provided` and `Labor Op: Not provided`.
+- Ensures mileage mentions are normalized to `km` and appended in first paragraph when provided in input context.
+- Added backend unit test coverage for inline-label stripping, root-cause format enforcement, metadata defaults, and mileage normalization.
+
