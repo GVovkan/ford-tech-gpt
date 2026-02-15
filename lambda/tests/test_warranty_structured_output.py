@@ -50,7 +50,7 @@ class TestWarrantyStructuredOutput(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(errs, [])
 
-    def test_formatted_story_order_and_labels_diag_repair(self):
+    def test_formatted_story_merges_sections_and_formats_root_cause(self):
         data = {"extra": "", "comment": "", "coverage": ""}
         payload = {
             "verification": "verified concern present",
@@ -60,21 +60,17 @@ class TestWarrantyStructuredOutput(unittest.TestCase):
             "post_repair_verification": "confirmed no dtcs and proper operation",
         }
         story = _format_warranty_story("diag_repair", payload, data)
-        expected_lines = [
-            "Verification:",
-            "Diagnosis:",
-            "Root cause:",
-            "Repair performed:",
-            "Post-repair verification:",
-        ]
         lines = story.split("\n")
         self.assertEqual(len(lines), 5)
-        for idx, prefix in enumerate(expected_lines):
-            self.assertTrue(lines[idx].startswith(prefix))
+        self.assertNotIn("Verification:", story)
+        self.assertNotIn("Diagnosis:", story)
+        self.assertTrue(lines[1].startswith("Root cause - "))
+        self.assertEqual(lines[2], "Causal Part: Not provided")
+        self.assertEqual(lines[3], "Labor Op: Not provided")
 
-    def test_formatted_story_includes_conditional_warranty_lines(self):
+    def test_formatted_story_includes_warranty_lines(self):
         data = {
-            "extra": "Warranty claim requested with labor op details",
+            "extra": "",
             "comment": "",
             "coverage": "",
             "causalPart": "ABCD-1234",
@@ -88,6 +84,31 @@ class TestWarrantyStructuredOutput(unittest.TestCase):
         story = _format_warranty_story("diag_only", payload, data)
         self.assertIn("Causal Part: ABCD-1234", story)
         self.assertIn("Labor Op: 12345A", story)
+
+    def test_formatted_story_appends_km_when_mileage_provided(self):
+        data = {"extra": "", "comment": "", "coverage": "", "mileage": "73420"}
+        payload = {
+            "verification": "Verified concern seatback will not latch",
+            "diagnosis": "Found broken latch spring",
+            "cause": "Broken latch spring",
+        }
+        story = _format_warranty_story("diag_only", payload, data)
+        self.assertIn("at 73420 km.", story)
+
+    def test_repair_only_story_keeps_required_warranty_structure(self):
+        data = {"extra": "", "comment": "", "coverage": "", "laborOp": "7777A"}
+        payload = {
+            "verification": "Verified concern present",
+            "repair_performed": "Replaced damaged latch assembly",
+            "post_repair_verification": "Confirmed latch operation normal",
+        }
+        story = _format_warranty_story("repair_only", payload, data)
+        lines = story.split("\n")
+        self.assertEqual(lines[0], "Verified concern present.")
+        self.assertEqual(lines[1], "Replaced damaged latch assembly.")
+        self.assertEqual(lines[2], "Causal Part: Not provided")
+        self.assertEqual(lines[3], "Labor Op: 7777A")
+        self.assertEqual(lines[4], "Confirmed latch operation normal.")
 
     def test_formatted_story_filters_time_content(self):
         data = {"extra": "", "comment": "", "coverage": ""}
