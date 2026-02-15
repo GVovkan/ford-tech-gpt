@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import boto3
 import urllib.request
 import urllib.error
@@ -8,8 +7,6 @@ import urllib.error
 ssm = boto3.client("ssm")
 OPENAI_URL = "https://api.openai.com/v1/responses"
 _TEMPLATES = None
-MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$")
-
 
 def _load_text(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
@@ -66,21 +63,7 @@ def _safe(v):
 
 
 def _select_model(data: dict) -> str:
-    requested = _safe(data.get("model"))
-    if requested and MODEL_RE.fullmatch(requested):
-        return requested
-    return os.environ.get("OPENAI_MODEL", "gpt-4.1")
-
-
-def _normalize_story(text: str) -> str:
-    text = (text or "").replace("\r\n", "\n").replace("\r", "\n")
-    text = text.replace("—", "-").replace("–", "-")
-    text = re.sub(r"(?m)^\s*[\u2022\u2023\u25E6\u2043\u2219•\-]+\s+", "", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    text = re.sub(r"(?i)\bcustomer\s+states\b", "Customer reported", text)
-    text = re.sub(r"(?i)\bnot\s+provided\b", "", text)
-    text = re.sub(r"\n{2,}", "\n", text)
-    return "\n".join([ln.rstrip() for ln in text.split("\n")]).strip()
+    return _safe(data.get("model")) or os.environ.get("OPENAI_MODEL", "gpt-4.1")
 
 
 def _build_prompt(data: dict) -> str:
@@ -114,30 +97,26 @@ def _build_prompt(data: dict) -> str:
 
 
 def _build_warranty_simple_user_prompt(data: dict) -> str:
-    lines = []
     vin = _safe(data.get("vin"))
     mileage = _safe(data.get("mileage"))
     diagnosis = _safe(data.get("diagnosis"))
     repair = _safe(data.get("repair"))
     parts = _safe(data.get("parts"))
     time = _safe(data.get("time"))
-    notes = _safe(data.get("notes") or data.get("comment") or data.get("extra"))
+    notes_values = [_safe(data.get("notes")), _safe(data.get("comment")), _safe(data.get("extra"))]
+    notes = " | ".join([value for value in notes_values if value])
 
-    if vin:
-        lines.append(f"VIN: {vin}")
-    if mileage:
-        lines.append(f"Mileage: {mileage} km")
-    lines.append(f"Diagnosis: {diagnosis}")
-    if repair:
-        lines.append(f"Repair: {repair}")
-    if parts:
-        lines.append(f"Parts: {parts}")
-    if time:
-        lines.append(f"Time: {time}")
-    if notes:
-        lines.append(f"Notes: {notes}")
-    lines.append("Write the complete warranty repair story now.")
-    return "\n".join(lines)
+    return (
+        "Provide the fields exactly as:\n\n"
+        f"VIN: {vin}\n"
+        f"Mileage: {mileage}\n"
+        f"Diagnosis (mandatory): {diagnosis}\n"
+        f"Repair (optional): {repair}\n"
+        f"Parts (optional): {parts}\n"
+        f"Time (optional): {time}\n"
+        f"Notes (optional): {notes}\n\n"
+        "Now write the complete warranty RO story following all rules."
+    )
 
 
 def _extract_story(result: dict) -> str:
@@ -178,35 +157,28 @@ def lambda_handler(event, context):
         data = json.loads(body) if isinstance(body, str) else (body or {})
         mode = _safe(data.get("mode")) or "Warranty"
 
-        if mode == "Warranty" and not _safe(data.get("diagnosis")):
-            return _resp(400, {"error": "Diagnosis is required", "details": "Provide diagnosis text."})
-
         api_key = _get_openai_key()
         model = _select_model(data)
 
         if mode == "Warranty":
             system_prompt = (
-                "You are a professional Ford dealership technician in Canada writing a warranty repair story.\n"
-                "Write in plain text only.\n"
-                "No bullet points.\n"
-                "No numbered lists.\n"
-                "No section headers like Verification or Diagnosis.\n"
-                "Use hyphen only.\n"
-                "Never write 'Customer states'.\n"
-                "Never write 'Not provided'.\n"
-                "If information is missing, generate professional and realistic wording instead of saying it is missing.\n"
-                "Use km for mileage.\n"
-                "Write in clear, direct technician tone.\n"
-                "Root cause must be written as: Root cause - <cause>.\n"
-                "Include Causal Part and Labor Op lines at the end.\n"
-                "If causal part or labor op are not provided by user, generate reasonable generic ones.\n"
-                "Do not mention that information was missing."
+                "You are a professional Ford dealership technician in Canada writing a warranty repair story for an RO. "
+                "Output plain text only, no markdown. No bullet points, no numbered lists. No section headers or labels like “Verification:” "
+                "or “Diagnosis:”. Use hyphens only (-). Never write “Customer states”. Never write “Not provided”, “N/A”, “unknown”, "
+                "or “missing”. If information is not supplied, generate reasonable professional generic wording instead. Use km only. "
+                "Write one continuous story block in this order: verified concern -> diagnostic actions/findings -> Root cause line -> "
+                "repair performed -> post-repair verification. Include exactly one root cause line that starts with: Root cause - . "
+                "At the end include exactly these two lines with colons and nothing else in between:\n"
+                "Causal Part: …\n"
+                "Labor Op: …\n"
+                "Do not invent torque values or WSM section numbers. You may say “torqued to specification” and “performed per "
+                "workshop manual procedure”. Do not invent numeric part numbers or labor hours when not provided."
             )
             user_prompt = _build_warranty_simple_user_prompt(data)
-            story = _normalize_story(_openai_story_call(api_key, model, system_prompt, user_prompt))
+            story = _openai_story_call(api_key, model, system_prompt, user_prompt)
         else:
             t = _get_templates()
-            story = _normalize_story(_openai_story_call(api_key, model, t["system_rules"], _build_prompt(data)))
+            story = _openai_story_call(api_key, model, t["system_rules"], _build_prompt(data))
 
         return _resp(200, {"story": story})
     except urllib.error.HTTPError as e:
