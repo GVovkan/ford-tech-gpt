@@ -21,6 +21,7 @@ import urllib.error
 ssm = boto3.client("ssm")
 OPENAI_URL = "https://api.openai.com/v1/responses"
 _TEMPLATES = None
+MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$")
 
 
 def _load_text(path: str) -> str:
@@ -76,6 +77,13 @@ def _get_openai_key() -> str:
 
 def _safe(v):
     return (v or "").strip()
+
+
+def _select_model(data: dict) -> str:
+    requested = _safe(data.get("model"))
+    if requested and MODEL_RE.fullmatch(requested):
+        return requested
+    return os.environ.get("OPENAI_MODEL", "gpt-4.1")
 
 
 def _normalize_story(text: str) -> str:
@@ -182,7 +190,7 @@ def lambda_handler(event, context):
         prompt = _build_prompt(data)
 
         payload = {
-            "model": os.environ.get("OPENAI_MODEL", "gpt-4.1"),
+            "model": _select_model(data),
             "input": [
                 {"role": "system", "content": t["system_rules"]},
                 {"role": "user", "content": prompt},

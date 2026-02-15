@@ -1,18 +1,18 @@
-<!-- web/test/index.html (v0.06-test) -->
+<!-- web/test/index.html (v0.07-test) -->
 <!doctype html>
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ford Tech Story Creator TEST - v0.06</title>
-  <link rel="stylesheet" href="../styles.css?v=0.06">
+  <title>Ford Tech Story Creator TEST - v0.07</title>
+  <link rel="stylesheet" href="../styles.css?v=0.07">
 </head>
 <body>
   <div class="wrap">
     <div class="topbar">
       <div class="brand">
         <h1>Ford Tech Story Creator</h1>
-        <div class="pill">v0.06-test</div>
+        <div class="pill">v0.07-test</div>
       </div>
 
       <div class="topRight">
@@ -60,6 +60,25 @@
           </div>
 
           <div class="vinHint">Tip - click the arrow for recent VINs</div>
+        </div>
+
+
+        <div class="field">
+          <label>Settings</label>
+          <div class="settingsRow">
+            <select id="modelPreset" onchange="applyModelPreset()">
+              <option value="">Model preset</option>
+              <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+              <option value="gpt-4.1">gpt-4.1</option>
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-5">gpt-5</option>
+              <option value="gpt-5.1">gpt-5.1</option>
+              <option value="gpt-5.2">gpt-5.2</option>
+            </select>
+            <input id="modelInput" type="text" placeholder="or enter any model id" spellcheck="false" />
+          </div>
+          <div class="vinHint">Saved locally for /test settings.</div>
         </div>
 
         <div class="field">
@@ -144,6 +163,7 @@
 const API_URL = "https://wubhcgbdlh.execute-api.ca-west-1.amazonaws.com/generate";
 const VIN_STORE_KEY = "vovkan_vins";
 const THEME_KEY = "vovkan_theme";
+const SETTINGS_KEY = "vovkan_settings";
 
 function applySectionMode(){
   const mode = document.getElementById("sectionMode").value;
@@ -288,6 +308,49 @@ function clickOutsideToClose(e){
   }
 }
 
+function loadSettings(){
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveSettings(next){
+  const current = loadSettings();
+  const merged = { ...current, ...next };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+}
+
+function applyModelPreset(){
+  const preset = document.getElementById("modelPreset").value;
+  if (!preset) return;
+  const modelInput = document.getElementById("modelInput");
+  modelInput.value = preset;
+  saveSettings({ model: preset });
+  setStatus("Model preset saved", true);
+}
+
+function onModelInputChange(){
+  const model = document.getElementById("modelInput").value.trim();
+  saveSettings({ model });
+}
+
+function hydrateSettings(){
+  const settings = loadSettings();
+  const model = (settings.model || "").trim();
+  const modelInput = document.getElementById("modelInput");
+  const modelPreset = document.getElementById("modelPreset");
+
+  modelInput.value = model;
+  const hasPreset = [...modelPreset.options].some(o => o.value === model);
+  modelPreset.value = hasPreset ? model : "";
+  modelInput.addEventListener("change", onModelInputChange);
+  modelInput.addEventListener("blur", onModelInputChange);
+}
+
 async function generate() {
   const out = document.getElementById("out");
   out.textContent = "";
@@ -307,7 +370,8 @@ async function generate() {
     comment: document.getElementById("comment").value,
     parts: document.getElementById("parts").value,
     time: document.getElementById("time").value,
-    extra: document.getElementById("extra").value
+    extra: document.getElementById("extra").value,
+    model: document.getElementById("modelInput").value.trim()
   };
 
   try {
@@ -381,6 +445,7 @@ function clearAll(){
 applySectionMode();
 setTheme(getTheme());
 renderVinDropdown();
+hydrateSettings();
 
 document.addEventListener("keydown", escapeToClose);
 document.addEventListener("click", clickOutsideToClose);

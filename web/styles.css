@@ -1,4 +1,4 @@
-/* web/styles.css (v0.06) */
+/* web/styles.css (v0.07) */
 :root{
   --bg:#0b0f14;
   --panel:#0f1621;
@@ -10,6 +10,8 @@
   --accent2:#00d4ff;
   --bad:#ff5b6e;
   --ok:#47d18c;
+  --btnPrimaryTop: color-mix(in srgb, var(--accent) 22%, transparent);
+  --btnPrimaryBottom: color-mix(in srgb, var(--accent) 8%, transparent);
   --shadow: 0 10px 30px rgba(0,0,0,.35);
   --radius:16px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -27,6 +29,8 @@ html[data-theme="light"]{
   --accent2:#00a6ff;
   --bad:#c81e3a;
   --ok:#0f8a4b;
+  --btnPrimaryTop: color-mix(in srgb, var(--accent) 18%, #ffffff);
+  --btnPrimaryBottom: color-mix(in srgb, var(--accent) 6%, #ffffff);
   --shadow: 0 10px 28px rgba(12,20,32,.10);
 }
 
@@ -235,10 +239,18 @@ input:focus, select:focus, textarea:focus{
 
 .vinWrap{ position: relative; }
 
+.settingsRow{
+  display:grid;
+  grid-template-columns: 210px 1fr;
+  gap:8px;
+}
+
+
 .vinDropBtn{
   position:absolute;
   right: 8px;
-  top: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   height: 32px;
   width: 32px;
   border-radius: 10px;
@@ -257,7 +269,7 @@ input:focus, select:focus, textarea:focus{
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-.vinDropBtn:active{ transform: translateY(1px); }
+.vinDropBtn:active{ transform: translateY(calc(-50% + 1px)); }
 
 .vinDropdown{
   position:absolute;
@@ -398,8 +410,8 @@ button:disabled{ opacity: .65; cursor:not-allowed; }
 
 .btnPrimary{
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent) 22%, transparent),
-    color-mix(in srgb, var(--accent) 8%, transparent)
+    var(--btnPrimaryTop),
+    var(--btnPrimaryBottom)
   );
   box-shadow: 0 10px 22px color-mix(in srgb, var(--accent) 10%, transparent);
   position: relative;
@@ -522,6 +534,7 @@ button:disabled{ opacity: .65; cursor:not-allowed; }
 
 @media (max-width: 900px){
   .grid{ grid-template-columns: 1fr; }
+  .settingsRow{ grid-template-columns: 1fr; }
   .grid3{ grid-template-columns: 1fr; }
   .status{ margin-left: 0; width: 100%; }
   .topbar{ flex-direction: column; align-items: flex-start; }
