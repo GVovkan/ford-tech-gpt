@@ -23,8 +23,26 @@ ssm = boto3.client("ssm")
 OPENAI_URL = "https://api.openai.com/v1/responses"
 _TEMPLATES = None
 MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$")
-FORBIDDEN_WORDS_RE = re.compile(r"\b(likely|possible|possibly|indicates|indicated|concluded|suspect|suspected|appears|maybe|perhaps)\b", re.IGNORECASE)
+FORBIDDEN_WORDS_RE = re.compile(r"\b(likely|possible|possibly|indicates|indicated|indicating|concluded|suspect|suspected|appears|seems|maybe|perhaps)\b", re.IGNORECASE)
 TIME_REFERENCES_RE = re.compile(r"\b(time|hour|hours|hr|hrs|justification)\b", re.IGNORECASE)
+VIN_DECODE_URL = "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/{vin}?format=json"
+_VIN_CACHE = {}
+
+RISKY_CLAIMS = [
+    "second row",
+    "third row",
+    "rear seat",
+    "rear seat removal",
+    "power running boards",
+    "sunroof",
+    "tow package",
+    "max tow",
+    "dual alternator",
+    "hdpp",
+    "rear ac",
+    "captain chairs",
+    "supercrew rear doors",
+]
 
 WARRANTY_JSON_SCHEMAS = {
     "diag_only": {
@@ -66,15 +84,6 @@ SECTION_ORDER = {
     "repair_only": ["verification", "repair_performed", "post_repair_verification"],
     "diag_repair": ["verification", "diagnosis", "cause", "repair_performed", "post_repair_verification"],
 }
-
-SECTION_LABELS = {
-    "verification": "Verification",
-    "diagnosis": "Diagnosis",
-    "cause": "Root cause",
-    "repair_performed": "Repair performed",
-    "post_repair_verification": "Post-repair verification",
-}
-
 
 def _load_text(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
@@ -287,6 +296,140 @@ def _clean_sentence(text: str) -> str:
     return text
 
 
+def _decode_vin(vin: str) -> dict:
+    vin = _safe(vin).upper()
+    if len(vin) != 17:
+        return {}
+    if vin in _VIN_CACHE:
+        return _VIN_CACHE[vin]
+
+    req = urllib.request.Request(VIN_DECODE_URL.format(vin=vin), method="GET")
+    with urllib.request.urlopen(req, timeout=15) as r:
+        data = json.loads(r.read().decode("utf-8"))
+
+    row = (data.get("Results") or [{}])[0]
+    decoded = {
+        "year": _safe(row.get("ModelYear")),
+        "make": _safe(row.get("Make")).lower(),
+        "model": _safe(row.get("Model")).lower(),
+        "trim": _safe(row.get("Trim")).lower(),
+        "body": _safe(row.get("BodyClass")).lower(),
+        "series": _safe(row.get("Series")).lower(),
+        "cab": _safe(row.get("CabType")).lower(),
+        "engine": _safe(row.get("EngineModel")).lower(),
+    }
+    _VIN_CACHE[vin] = decoded
+    return decoded
+
+
+def _vin_capabilities(decoded: dict) -> dict:
+    combined = " ".join([decoded.get("body", ""), decoded.get("series", ""), decoded.get("trim", ""), decoded.get("cab", "")])
+    is_regular = "regular" in combined
+    is_super = "supercrew" in combined or "super cab" in combined or "supercab" in combined
+    model = decoded.get("model", "")
+    return {
+        "model": model,
+        "regular_cab": is_regular,
+        "rear_seat_possible": is_super,
+        "third_row_allowed": model == "explorer",
+    }
+
+
+def _input_mentions_feature(data: dict, claim: str) -> bool:
+    haystack = " ".join([
+        _safe(data.get("concern")),
+        _safe(data.get("diagnosis")),
+        _safe(data.get("repair")),
+        _safe(data.get("comment")),
+        _safe(data.get("extra")),
+    ]).lower()
+    features = data.get("vehicle_features") or []
+    feature_text = " ".join([str(v).lower() for v in features])
+    return claim in haystack or claim in feature_text
+
+
+def _claim_allowed(claim: str, vin_caps: dict, data: dict) -> bool:
+    model = vin_caps.get("model", "")
+    mentioned = _input_mentions_feature(data, claim)
+
+    if claim == "third row":
+        if model == "f-150":
+            return False
+        return vin_caps.get("third_row_allowed") and mentioned
+
+    if claim in ("second row", "rear seat", "rear seat removal", "supercrew rear doors"):
+        if vin_caps.get("regular_cab"):
+            return False
+        return vin_caps.get("rear_seat_possible") and mentioned
+
+    return mentioned
+
+
+def _filter_unvalidated_claims(text: str, data: dict, vin_caps: dict) -> str:
+    sentences = re.split(r"(?<=[.!?])\s+", _normalize_story(text))
+    kept = []
+    for sentence in sentences:
+        line = sentence.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        blocked = False
+        for claim in RISKY_CLAIMS:
+            if claim in lower and not _claim_allowed(claim, vin_caps, data):
+                blocked = True
+                break
+        if not blocked:
+            kept.append(line)
+    return " ".join(kept).strip()
+
+
+def _enforce_km_units(text: str) -> str:
+    text = re.sub(r"(?i)\b(miles|mile|mi)\b", "km", text)
+    return text
+
+
+def _enforce_wsm_repair_language(repair_text: str, data: dict) -> str:
+    text = _normalize_story(repair_text or "")
+    if not _input_mentions_feature(data, "if equipped"):
+        text = re.sub(r"(?i)\bif equipped\b", "", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+
+    repair_steps = _safe(data.get("repair_steps")).lower()
+    lines = [ln.strip() for ln in re.split(r"(?<=[.!?])\s+", text) if ln.strip()]
+    filtered = []
+    for ln in lines:
+        ll = ln.lower()
+        has_diag = any(k in ll for k in ("diagnos", "dtc", "pinpoint", "verified concern", "root cause"))
+        if has_diag and ll not in repair_steps:
+            continue
+        filtered.append(ln)
+
+    rebuilt = " ".join(filtered).strip()
+    if not rebuilt:
+        rebuilt = "Removed and installed components as required."
+    if not re.search(r"\b(removed|installed|replaced|repaired|performed)\b", rebuilt, re.IGNORECASE):
+        rebuilt = "Performed repair procedure. " + rebuilt
+    if not re.search(r"torqu\w*\s+.*spec", rebuilt, re.IGNORECASE):
+        rebuilt += " Torqued fasteners to specification."
+
+    wsm_ref = _safe(data.get("wsm_ref"))
+    tsb_ref = _safe(data.get("tsb_ref"))
+    if wsm_ref:
+        rebuilt += f" Performed procedure per WSM {wsm_ref}."
+    elif tsb_ref:
+        rebuilt += f" Performed procedure per TSB {tsb_ref}."
+    elif not re.search(r"\b(workshop manual|wsm)\b", rebuilt, re.IGNORECASE):
+        rebuilt += " Performed procedure per workshop manual procedure."
+
+    rebuilt = re.sub(r"\s{2,}", " ", rebuilt).strip()
+    return _clean_sentence(rebuilt)
+
+
+
+
+def _sanitize_non_metadata_text(text: str) -> str:
+    return (text or "").replace(":", " -")
+
 def _remove_time_lines(text: str) -> str:
     lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
     filtered = [ln for ln in lines if not TIME_REFERENCES_RE.search(ln)]
@@ -294,16 +437,8 @@ def _remove_time_lines(text: str) -> str:
 
 
 def _warranty_metadata_lines(data: dict) -> list:
-    coverage = _safe(data.get("coverage"))
-    extra = _safe(data.get("extra"))
-    comment = _safe(data.get("comment"))
-    hints = " ".join([coverage, extra, comment]).lower()
-    requested = any(k in hints for k in ("warranty", "causal part", "labor op"))
-
     causal_part = _safe(data.get("causalPart") or data.get("causal_part"))
     labor_op = _safe(data.get("laborOp") or data.get("labor_op"))
-    if not requested and not causal_part and not labor_op:
-        return []
     return [
         f"Causal Part: {causal_part or 'Not provided'}",
         f"Labor Op: {labor_op or 'Not provided'}",
@@ -311,12 +446,48 @@ def _warranty_metadata_lines(data: dict) -> list:
 
 
 def _format_warranty_story(section_mode: str, payload: dict, data: dict) -> str:
-    lines = []
-    for key in SECTION_ORDER[section_mode]:
-        lines.append(f"{SECTION_LABELS[key]}: {_clean_sentence(payload.get(key, ''))}")
-    lines.extend(_warranty_metadata_lines(data))
-    final = _remove_time_lines("\n".join(lines))
+    vin_caps = _vin_capabilities(_decode_vin(_safe(data.get("vin"))))
+
+    verification = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("verification", ""), data, vin_caps)))
+    diagnosis = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("diagnosis", ""), data, vin_caps)))
+    cause = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("cause", ""), data, vin_caps)))
+    repair = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("repair_performed", ""), data, vin_caps)))
+    post = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("post_repair_verification", ""), data, vin_caps)))
+
+    if section_mode in ("repair_only", "diag_repair"):
+        repair = _enforce_wsm_repair_language(repair, data)
+
+    block1_parts = []
+    if section_mode in ("diag_only", "diag_repair", "repair_only"):
+        if payload.get("verification"):
+            block1_parts.append(verification)
+    if section_mode in ("diag_only", "diag_repair") and payload.get("diagnosis"):
+        block1_parts.append(diagnosis)
+    block1 = " ".join(block1_parts).strip()
+
+    block2_parts = []
+    if section_mode in ("diag_only", "diag_repair") and payload.get("cause"):
+        block2_parts.append(f"Root cause - {cause}")
+    if section_mode in ("repair_only", "diag_repair") and payload.get("repair_performed"):
+        block2_parts.append(repair)
+    block2 = " ".join(block2_parts).strip()
+
+    blocks = []
+    if block1:
+        blocks.append(block1)
+    if block2:
+        blocks.append(block2)
+
+    blocks.append("\n".join(_warranty_metadata_lines(data)))
+
+    if section_mode in ("repair_only", "diag_repair") and payload.get("post_repair_verification"):
+        blocks.append(post)
+
+    final = "\n".join([b for b in blocks if b.strip()])
+    final = _remove_time_lines(_enforce_km_units(final))
     final = final.replace("—", "-").replace("–", "-")
+    if not _input_mentions_feature(data, "if equipped"):
+        final = re.sub(r"(?i)\bif equipped\b", "", final)
     return re.sub(r"\n{2,}", "\n", final).strip()
 
 
