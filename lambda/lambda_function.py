@@ -17,11 +17,63 @@ import re
 import boto3
 import urllib.request
 import urllib.error
+from typing import Tuple
 
 ssm = boto3.client("ssm")
 OPENAI_URL = "https://api.openai.com/v1/responses"
 _TEMPLATES = None
 MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$")
+FORBIDDEN_WORDS_RE = re.compile(r"\b(likely|possible|possibly|indicates|indicated|concluded|suspect|suspected|appears|maybe|perhaps)\b", re.IGNORECASE)
+TIME_REFERENCES_RE = re.compile(r"\b(time|hour|hours|hr|hrs|justification)\b", re.IGNORECASE)
+
+WARRANTY_JSON_SCHEMAS = {
+    "diag_only": {
+        "type": "object",
+        "required": ["verification", "diagnosis", "cause"],
+        "properties": {
+            "verification": {"type": "string"},
+            "diagnosis": {"type": "string"},
+            "cause": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "repair_only": {
+        "type": "object",
+        "required": ["verification", "repair_performed", "post_repair_verification"],
+        "properties": {
+            "verification": {"type": "string"},
+            "repair_performed": {"type": "string"},
+            "post_repair_verification": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "diag_repair": {
+        "type": "object",
+        "required": ["verification", "diagnosis", "cause", "repair_performed", "post_repair_verification"],
+        "properties": {
+            "verification": {"type": "string"},
+            "diagnosis": {"type": "string"},
+            "cause": {"type": "string"},
+            "repair_performed": {"type": "string"},
+            "post_repair_verification": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+}
+
+SECTION_ORDER = {
+    "diag_only": ["verification", "diagnosis", "cause"],
+    "repair_only": ["verification", "repair_performed", "post_repair_verification"],
+    "diag_repair": ["verification", "diagnosis", "cause", "repair_performed", "post_repair_verification"],
+}
+
+SECTION_LABELS = {
+    "verification": "Verification",
+    "diagnosis": "Diagnosis",
+    "cause": "Root cause",
+    "repair_performed": "Repair performed",
+    "post_repair_verification": "Post-repair verification",
+}
 
 
 def _load_text(path: str) -> str:
@@ -167,6 +219,15 @@ def _build_prompt(data: dict) -> str:
     return (rules + "\n\n" + inputs_block).strip()
 
 
+def _build_warranty_structured_prompt(data: dict) -> str:
+    prompt = _build_prompt(data)
+    return (
+        prompt
+        + "\n\nReturn only valid JSON for the required schema."
+        + " Do not include markdown, prose, or keys outside the schema."
+    )
+
+
 def _extract_story(result: dict) -> str:
     story = ""
     for item in result.get("output", []):
@@ -176,25 +237,113 @@ def _extract_story(result: dict) -> str:
     return story.strip()
 
 
-def lambda_handler(event, context):
-    method = event.get("requestContext", {}).get("http", {}).get("method", "")
-    if method == "OPTIONS":
-        return _resp(200, {"ok": True})
+def _extract_json_text(result: dict) -> str:
+    buf = ""
+    for item in result.get("output", []):
+        for c in item.get("content", []):
+            if c.get("type") in ("output_text", "text"):
+                buf += c.get("text", "")
+    return buf.strip()
 
-    try:
-        body = event.get("body") or "{}"
-        data = json.loads(body) if isinstance(body, str) else (body or {})
 
-        api_key = _get_openai_key()
-        t = _get_templates()
-        prompt = _build_prompt(data)
+def _json_schema_for_section_mode(section_mode: str) -> dict:
+    return WARRANTY_JSON_SCHEMAS.get(section_mode, WARRANTY_JSON_SCHEMAS["diag_repair"])
 
+
+def _validate_structured_payload(section_mode: str, payload: dict) -> Tuple[bool, list]:
+    schema = _json_schema_for_section_mode(section_mode)
+    required = schema["required"]
+    allowed = set(schema["properties"].keys())
+    errs = []
+
+    if not isinstance(payload, dict):
+        return False, ["Payload is not a JSON object"]
+
+    for key in required:
+        val = payload.get(key)
+        if not isinstance(val, str) or not val.strip():
+            errs.append(f"Missing or empty required key: {key}")
+
+    extra = sorted(set(payload.keys()) - allowed)
+    if extra:
+        errs.append("Unexpected keys: " + ", ".join(extra))
+
+    for key in allowed.intersection(payload.keys()):
+        if not isinstance(payload.get(key), str):
+            errs.append(f"Key must be a string: {key}")
+
+    return len(errs) == 0, errs
+
+
+def _clean_sentence(text: str) -> str:
+    text = _normalize_story(text or "")
+    text = FORBIDDEN_WORDS_RE.sub("", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    text = text.strip(" -")
+    if not text:
+        return "Not provided."
+    if text[-1] not in ".!?":
+        text += "."
+    return text
+
+
+def _remove_time_lines(text: str) -> str:
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    filtered = [ln for ln in lines if not TIME_REFERENCES_RE.search(ln)]
+    return "\n".join(filtered)
+
+
+def _warranty_metadata_lines(data: dict) -> list:
+    coverage = _safe(data.get("coverage"))
+    extra = _safe(data.get("extra"))
+    comment = _safe(data.get("comment"))
+    hints = " ".join([coverage, extra, comment]).lower()
+    requested = any(k in hints for k in ("warranty", "causal part", "labor op"))
+
+    causal_part = _safe(data.get("causalPart") or data.get("causal_part"))
+    labor_op = _safe(data.get("laborOp") or data.get("labor_op"))
+    if not requested and not causal_part and not labor_op:
+        return []
+    return [
+        f"Causal Part: {causal_part or 'Not provided'}",
+        f"Labor Op: {labor_op or 'Not provided'}",
+    ]
+
+
+def _format_warranty_story(section_mode: str, payload: dict, data: dict) -> str:
+    lines = []
+    for key in SECTION_ORDER[section_mode]:
+        lines.append(f"{SECTION_LABELS[key]}: {_clean_sentence(payload.get(key, ''))}")
+    lines.extend(_warranty_metadata_lines(data))
+    final = _remove_time_lines("\n".join(lines))
+    final = final.replace("—", "-").replace("–", "-")
+    return re.sub(r"\n{2,}", "\n", final).strip()
+
+
+def _generate_structured_warranty_story(data: dict, api_key: str, model: str, t: dict) -> Tuple[str, list]:
+    section_mode = _safe(data.get("sectionMode")) or "diag_repair"
+    if section_mode not in ("diag_only", "repair_only", "diag_repair"):
+        section_mode = "diag_repair"
+
+    schema = _json_schema_for_section_mode(section_mode)
+    prompt = _build_warranty_structured_prompt(data)
+    last_errors = []
+
+    for _ in range(2):
         payload = {
-            "model": _select_model(data),
+            "model": model,
             "input": [
                 {"role": "system", "content": t["system_rules"]},
                 {"role": "user", "content": prompt},
             ],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": f"warranty_{section_mode}",
+                    "schema": schema,
+                    "strict": True,
+                }
+            },
         }
 
         req = urllib.request.Request(
@@ -210,7 +359,70 @@ def lambda_handler(event, context):
         with urllib.request.urlopen(req, timeout=30) as r:
             result = json.loads(r.read().decode("utf-8"))
 
-        story = _normalize_story(_extract_story(result))
+        raw_json = _extract_json_text(result)
+        try:
+            structured = json.loads(raw_json)
+        except json.JSONDecodeError:
+            last_errors = ["Model output is not valid JSON"]
+            continue
+
+        valid, errs = _validate_structured_payload(section_mode, structured)
+        if not valid:
+            last_errors = errs
+            continue
+
+        merged_text = "\n".join(str(structured.get(k, "")) for k in SECTION_ORDER[section_mode])
+        if FORBIDDEN_WORDS_RE.search(merged_text):
+            last_errors = ["Model output contained forbidden interpretive words"]
+            continue
+
+        return _format_warranty_story(section_mode, structured, data), []
+
+    return "", last_errors or ["Structured output validation failed"]
+
+
+def lambda_handler(event, context):
+    method = event.get("requestContext", {}).get("http", {}).get("method", "")
+    if method == "OPTIONS":
+        return _resp(200, {"ok": True})
+
+    try:
+        body = event.get("body") or "{}"
+        data = json.loads(body) if isinstance(body, str) else (body or {})
+
+        api_key = _get_openai_key()
+        t = _get_templates()
+        mode = _safe(data.get("mode")) or "Warranty"
+        model = _select_model(data)
+
+        if mode == "Warranty":
+            story, errors = _generate_structured_warranty_story(data, api_key, model, t)
+            if errors:
+                return _resp(422, {"error": "Warranty output validation failed", "details": "; ".join(errors)})
+        else:
+            prompt = _build_prompt(data)
+            payload = {
+                "model": model,
+                "input": [
+                    {"role": "system", "content": t["system_rules"]},
+                    {"role": "user", "content": prompt},
+                ],
+            }
+
+            req = urllib.request.Request(
+                OPENAI_URL,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+
+            with urllib.request.urlopen(req, timeout=30) as r:
+                result = json.loads(r.read().decode("utf-8"))
+
+            story = _normalize_story(_extract_story(result))
         return _resp(200, {"story": story})
 
     except urllib.error.HTTPError as e:
