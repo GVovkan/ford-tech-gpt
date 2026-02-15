@@ -1,0 +1,6 @@
+# prompts/mode_cp.txt (v0.05)
+CP mode rules:
+Write in technician documentation style.
+Keep language factual and direct.
+Explain findings and work performed clearly without fluff.
+If time is high, justify briefly but clearly with real actions performed.

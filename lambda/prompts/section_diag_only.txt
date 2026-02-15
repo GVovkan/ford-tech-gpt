@@ -1,0 +1,10 @@
+# prompts/section_diag_only.txt (v0.05)
+Context (do not repeat these labels in the output):
+Mode = {mode}
+VIN = {vin}
+Concern = {concern}
+Diagnosis notes = {diagnosis}
+Parts used = {parts}
+Time justification = {time}
+Extra notes = {extra}
+Task: Write a technician story focused on verification and diagnosis only. Do not include repair actions unless repair details were provided in extra notes.

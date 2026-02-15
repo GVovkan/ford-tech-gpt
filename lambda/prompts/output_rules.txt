@@ -1,0 +1,7 @@
+# prompts/output_rules.txt (v0.05)
+Content rules:
+Write one continuous technician story based on the inputs.
+Do not echo the input labels or field names.
+Do not invent missing information.
+If a field is blank, omit it instead of guessing.
+Include final verification / re-test results only if repair info is provided.

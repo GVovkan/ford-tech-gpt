@@ -1,0 +1,389 @@
+<!-- web/index.html (v0.06) -->
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ford Tech Story Creator - v0.06</title>
+  <link rel="stylesheet" href="styles.css?v=0.06">
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <h1>Ford Tech Story Creator</h1>
+        <div class="pill">v0.06</div>
+      </div>
+
+      <div class="topRight">
+        <div class="pill subtle">Plain-text RO story - hyphens - no “Customer states”</div>
+
+        <button class="themeBtn" id="themeBtn" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
+          <span class="themeDot" aria-hidden="true"></span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <div class="cardTitle">Inputs</div>
+          <div class="subtitle">Pick Diag / Repair / Diag + Repair. Add optional instruction when you need “extra detail”.</div>
+        </div>
+        <div class="hint">Tip - keep notes short, story comes out clean</div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label>Mode</label>
+          <select id="mode">
+            <option>Warranty</option>
+            <option>CP</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>VIN</label>
+
+          <div class="vinWrap">
+            <input id="vin" class="vinInput" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="1FM..." />
+            <button class="vinDropBtn" type="button" onclick="toggleVinDropdown()" aria-label="VIN history">&#9662;</button>
+
+            <div id="vinDropdown" class="vinDropdown" role="listbox" aria-label="VIN history">
+              <div class="vinDropdownHeader">
+                <div class="vinDropdownTitle">Recent VINs</div>
+                <button class="vinClearBtn" type="button" onclick="clearVinHistory()">Clear</button>
+              </div>
+              <div id="vinDropdownList" class="vinDropdownList"></div>
+            </div>
+          </div>
+
+          <div class="vinHint">Tip - click the arrow for recent VINs</div>
+        </div>
+
+        <div class="field">
+          <label>Story Sections</label>
+          <select id="sectionMode" onchange="applySectionMode()">
+            <option value="diag_repair" selected>Diag + Repair</option>
+            <option value="diag_only">Diag only</option>
+            <option value="repair_only">Repair only</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Concern</label>
+          <textarea id="concern" placeholder="Example: No crank - no ignition response."></textarea>
+        </div>
+
+        <div class="field" id="diagBox">
+          <label>Diagnosis</label>
+          <textarea id="diagnosis" placeholder="What you checked - what you found - tests/measurements/codes."></textarea>
+        </div>
+
+        <div class="field" id="repairBox">
+          <label>Repair</label>
+          <textarea id="repair" placeholder="What you repaired/replaced/programmed - recheck results."></textarea>
+        </div>
+
+        <div class="field">
+          <label>Comment / Special Instruction (optional)</label>
+          <textarea id="comment" placeholder="Example: Generate extremely detailed explanation for annoying customer. Or: Make story very detailed to justify time."></textarea>
+        </div>
+
+        <div class="field grid3" style="grid-column: 1 / -1;">
+          <div>
+            <label>Parts Used</label>
+            <textarea id="parts" placeholder="Part numbers / quantities if applicable."></textarea>
+          </div>
+          <div>
+            <label>Time / Justification</label>
+            <textarea id="time" placeholder="Hours spent and why (intermittent, repeated programming, wiring tracing, etc.)."></textarea>
+          </div>
+          <div>
+            <label>Extra Notes (optional)</label>
+            <textarea id="extra" placeholder="Anything else you want included (modules, PIDs, scan tool notes, etc.)."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnGenerate" class="btnPrimary" type="button" onclick="generate()">
+          <span class="btnLabel">Generate</span>
+          <span class="btnSpinner" aria-hidden="true"></span>
+        </button>
+        <button class="btnGhost" type="button" onclick="copyOut()">Copy</button>
+        <button class="btnGhost" type="button" onclick="clearAll()">Clear</button>
+        <div class="status" id="status"></div>
+      </div>
+
+      <div class="outWrap">
+        <div id="out" class="out"></div>
+
+        <div id="skeleton" class="skeletonOverlay" aria-hidden="true">
+          <div class="skeletonCard">
+            <div class="skLine w60"></div>
+            <div class="skLine w92"></div>
+            <div class="skLine w88"></div>
+            <div class="skLine w95"></div>
+            <div class="skLine w78"></div>
+            <div class="skLine w90"></div>
+            <div class="skLine w70"></div>
+            <div class="skLine w94"></div>
+            <div class="skLine w83"></div>
+            <div class="skLine w76"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">(c) Vovkan</div>
+  </div>
+
+<script>
+const API_URL = "https://wubhcgbdlh.execute-api.ca-west-1.amazonaws.com/generate";
+const VIN_STORE_KEY = "vovkan_vins";
+const THEME_KEY = "vovkan_theme";
+
+function applySectionMode(){
+  const mode = document.getElementById("sectionMode").value;
+  const diagBox = document.getElementById("diagBox");
+  const repairBox = document.getElementById("repairBox");
+
+  if (mode === "diag_only") {
+    diagBox.style.display = "block";
+    repairBox.style.display = "none";
+  } else if (mode === "repair_only") {
+    diagBox.style.display = "none";
+    repairBox.style.display = "block";
+  } else {
+    diagBox.style.display = "block";
+    repairBox.style.display = "block";
+  }
+}
+
+function setStatus(msg, ok=null){
+  const s = document.getElementById("status");
+  s.textContent = msg || "";
+  if (ok === true) s.style.color = "var(--ok)";
+  else if (ok === false) s.style.color = "var(--bad)";
+  else s.style.color = "var(--muted)";
+}
+
+function setLoading(isLoading){
+  const btn = document.getElementById("btnGenerate");
+  const sk = document.getElementById("skeleton");
+
+  if (isLoading){
+    btn.classList.add("isLoading");
+    btn.disabled = true;
+    sk.classList.add("show");
+  } else {
+    btn.classList.remove("isLoading");
+    btn.disabled = false;
+    sk.classList.remove("show");
+  }
+}
+
+function getTheme(){
+  return localStorage.getItem(THEME_KEY) || "dark";
+}
+
+function setTheme(theme){
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem(THEME_KEY, theme);
+
+  const label = document.getElementById("themeLabel");
+  const dot = document.querySelector(".themeDot");
+  if (theme === "light"){
+    label.textContent = "Light";
+    dot.classList.add("on");
+  } else {
+    label.textContent = "Dark";
+    dot.classList.remove("on");
+  }
+}
+
+function toggleTheme(){
+  setTheme(getTheme() === "dark" ? "light" : "dark");
+}
+
+function loadVinHistory(){
+  try {
+    const raw = localStorage.getItem(VIN_STORE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveVinHistory(vins){
+  localStorage.setItem(VIN_STORE_KEY, JSON.stringify(vins.slice(0, 12)));
+}
+
+function addVinToHistory(vin){
+  vin = (vin || "").trim().toUpperCase();
+  if (!vin) return;
+
+  let vins = loadVinHistory();
+  vins = vins.filter(v => v !== vin);
+  vins.unshift(vin);
+  saveVinHistory(vins);
+  renderVinDropdown();
+}
+
+function clearVinHistory(){
+  localStorage.removeItem(VIN_STORE_KEY);
+  renderVinDropdown();
+  setStatus("VIN history cleared", true);
+}
+
+function renderVinDropdown(){
+  const list = document.getElementById("vinDropdownList");
+  const vins = loadVinHistory();
+
+  list.innerHTML = "";
+  if (vins.length === 0){
+    const empty = document.createElement("div");
+    empty.className = "vinEmpty";
+    empty.textContent = "No VINs saved yet";
+    list.appendChild(empty);
+    return;
+  }
+
+  vins.forEach(v => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "vinItem";
+    item.textContent = v;
+    item.onclick = () => {
+      document.getElementById("vin").value = v;
+      closeVinDropdown();
+    };
+    list.appendChild(item);
+  });
+}
+
+function toggleVinDropdown(){
+  const dd = document.getElementById("vinDropdown");
+  dd.classList.toggle("show");
+  renderVinDropdown();
+}
+
+function closeVinDropdown(){
+  document.getElementById("vinDropdown").classList.remove("show");
+}
+
+function escapeToClose(e){
+  if (e.key === "Escape"){
+    closeVinDropdown();
+  }
+}
+
+function clickOutsideToClose(e){
+  const wrap = document.querySelector(".vinWrap");
+  if (!wrap.contains(e.target)){
+    closeVinDropdown();
+  }
+}
+
+async function generate() {
+  const out = document.getElementById("out");
+  out.textContent = "";
+  setStatus("Generating...", null);
+  setLoading(true);
+
+  const vinValue = document.getElementById("vin").value;
+  addVinToHistory(vinValue);
+
+  const payload = {
+    mode: document.getElementById("mode").value,
+    sectionMode: document.getElementById("sectionMode").value,
+    vin: vinValue,
+    concern: document.getElementById("concern").value,
+    diagnosis: document.getElementById("diagnosis").value,
+    repair: document.getElementById("repair").value,
+    comment: document.getElementById("comment").value,
+    parts: document.getElementById("parts").value,
+    time: document.getElementById("time").value,
+    extra: document.getElementById("extra").value
+  };
+
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      out.textContent = "Error: " + (data.error || data.message || "unknown") + (data.details ? "\n\n" + data.details : "");
+      setStatus("Error returned from API", false);
+      setLoading(false);
+      return;
+    }
+
+    out.textContent = data.story || "";
+    setStatus("Done", true);
+    setLoading(false);
+  } catch (e) {
+    out.textContent = "Network error: " + e;
+    setStatus("Network error (CORS / blocked / offline)", false);
+    setLoading(false);
+  }
+}
+
+async function copyOut() {
+  const text = document.getElementById("out").textContent || "";
+  if (!text.trim()){
+    setStatus("Nothing to copy", false);
+    return;
+  }
+
+  // Works best on HTTPS (CloudFront). Fallback helps on some browsers.
+  try {
+    if (navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+      setStatus("Copied", true);
+      return;
+    }
+  } catch {}
+
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    setStatus(ok ? "Copied" : "Copy blocked (use HTTPS)", ok);
+  } catch {
+    setStatus("Copy blocked (use HTTPS)", false);
+  }
+}
+
+function clearAll(){
+  ["vin","concern","diagnosis","repair","comment","parts","time","extra"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  document.getElementById("out").textContent = "";
+  setStatus("", null);
+}
+
+applySectionMode();
+setTheme(getTheme());
+renderVinDropdown();
+
+document.addEventListener("keydown", escapeToClose);
+document.addEventListener("click", clickOutsideToClose);
+</script>
+</body>
+</html>
