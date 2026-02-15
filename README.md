@@ -32,3 +32,9 @@ Add three repository variables:
 - The workflow deploys code/content only and does not create infrastructure.
 - Lambda runtime env vars still must be configured in AWS (`OPENAI_PARAM_NAME`, `OPENAI_MODEL`, `CORS_ORIGIN`).
 - Runtime access to AWS SSM Parameter Store must remain granted to the Lambda execution role.
+
+## Test-first workflow rule
+
+- Use `web/test/index.html` as the `/test` sandbox route for experiments and new UI/backend integration ideas.
+- Keep `web/index.html` as the stable production entrypoint.
+- Promote changes from `/test` into production only when explicitly requested.

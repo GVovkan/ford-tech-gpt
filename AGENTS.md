@@ -7,6 +7,11 @@ Scope: this file applies to the entire repository.
 - Backend: AWS Lambda Python in `lambda/`
 - AI prompt files: plain text in `lambda/prompts/`
 
+
+## Test-first change workflow
+- Experimental or innovative changes should be implemented in `web/test/index.html` first (served as `/test`).
+- Keep `web/index.html` stable as production until user explicitly asks to transfer `/test` changes to main.
+
 ## Non-negotiable story output rules
 Generated story output must always be:
 - Plain text only
