@@ -27,3 +27,16 @@
 - Bumped Lambda header version tag to `v0.08` in `lambda/lambda_function.py`.
 - Extended README versioning rule to explicitly require HTML marker updates for frontend changes and Lambda header version tag bumps for backend changes.
 
+
+## v0.19-gpt
+- Added a new lightweight `/gpt` page at `web/gpt/index.html` for quick personal prompts.
+- New page includes only Ask input, Generate button, and Generation output.
+- Kept theme toggle with existing `vovkan_theme` localStorage key and `(c) Vovkan` footer.
+- Added minimal supporting layout styles for the new Dash GPT page in `web/styles.css`.
+
+## v0.20-gpt
+- Reworked `/gpt` to be fully separated from shared app files.
+- Moved Dash GPT page styling into standalone `web/gpt/styles.css`.
+- Moved Dash GPT behavior into standalone `web/gpt/app.js`.
+- Updated `/gpt` HTML version markers and asset links to `v0.20`.
+- Removed Dash GPT-specific styles from shared `web/styles.css`.

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dash GPT - v0.20</title>
+  <link rel="stylesheet" href="./styles.css?v=0.20">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <h1>Dash GPT</h1>
+      <div class="topRight">
+        <div class="badge">v0.20</div>
+        <button id="themeBtn" class="themeBtn" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
+          <span id="themeDot" class="themeDot" aria-hidden="true"></span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="card">
+      <label for="ask">Ask</label>
+      <textarea id="ask" placeholder="What do you want GPT to do?"></textarea>
+
+      <button id="generateBtn" class="generateBtn" onclick="generateStory()">Generate</button>
+
+      <label for="generation">Generation</label>
+      <textarea id="generation" readonly placeholder="Output will appear here..."></textarea>
+    </section>
+
+    <footer>(c) Vovkan</footer>
+  </main>
+
+  <script src="./app.js?v=0.20"></script>
+</body>
+</html>
