@@ -1,0 +1,138 @@
+:root{
+  --bg:#0b0f14;
+  --card:#111926;
+  --text:#e8eef8;
+  --muted:#95a8c5;
+  --line:#223145;
+  --accent:#4aa3ff;
+}
+
+html[data-theme="light"]{
+  --bg:#f4f7fb;
+  --card:#ffffff;
+  --text:#111826;
+  --muted:#4f617b;
+  --line:#d8e2ef;
+  --accent:#1b66ff;
+}
+
+*{ box-sizing: border-box; }
+
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.page{
+  max-width: 760px;
+  margin: 20px auto;
+  padding: 0 14px 28px;
+}
+
+.topbar{
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  margin-bottom: 12px;
+  gap: 10px;
+}
+
+h1{
+  margin:0;
+  font-size: 22px;
+}
+
+.topRight{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.badge{
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:4px 10px;
+  color:var(--muted);
+  font-size:12px;
+}
+
+.themeBtn{
+  border:1px solid var(--line);
+  background:transparent;
+  color:var(--text);
+  border-radius:999px;
+  padding:8px 12px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.themeDot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:var(--muted);
+}
+
+.themeDot.on{
+  background:var(--accent);
+}
+
+.card{
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:14px;
+  background:var(--card);
+}
+
+label{
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin: 0 0 6px;
+}
+
+textarea{
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:transparent;
+  color:var(--text);
+  padding:10px;
+  font-size:14px;
+  margin-bottom: 10px;
+}
+
+#ask{ min-height: 110px; }
+#generation{ min-height: 240px; }
+
+.generateBtn{
+  width:100%;
+  border:1px solid var(--accent);
+  background:var(--accent);
+  color:#fff;
+  border-radius:12px;
+  padding:10px;
+  font-weight:700;
+  cursor:pointer;
+  margin-bottom:10px;
+}
+
+.generateBtn:disabled{
+  opacity:.7;
+  cursor:not-allowed;
+}
+
+footer{
+  margin-top:10px;
+  text-align:right;
+  color:var(--muted);
+  font-size:12px;
+}
+
+@media (max-width: 640px){
+  .topbar{ flex-direction: column; align-items:flex-start; }
+}
