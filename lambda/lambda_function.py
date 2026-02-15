@@ -26,6 +26,9 @@ MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$")
 FORBIDDEN_WORDS_RE = re.compile(r"\b(likely|possible|possibly|indicates|indicated|indicating|concluded|suspect|suspected|appears|seems|maybe|perhaps)\b", re.IGNORECASE)
 TIME_REFERENCES_RE = re.compile(r"\b(time|hour|hours|hr|hrs|justification)\b", re.IGNORECASE)
 MILEAGE_RE = re.compile(r"\b(\d{3,7})\s*(km|kms|kilometers?|kilometres?)?\b", re.IGNORECASE)
+CONCERN_LINE_RE = re.compile(r"(?im)^\s*concern\s*[:\-]\s*(.+?)\s*$")
+NO_DTCS_RE = re.compile(r"(?i)\bno\s*(?:stored\s*)?(?:dtcs?|codes?)\b")
+PLACEHOLDER_RE = re.compile(r"^\s*(not provided|n/?a|na|none provided|unknown)\s*\.?\s*$", re.IGNORECASE)
 VIN_DECODE_URL = "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/{vin}?format=json"
 _VIN_CACHE = {}
 
@@ -146,6 +149,32 @@ def _select_model(data: dict) -> str:
     if requested and MODEL_RE.fullmatch(requested):
         return requested
     return os.environ.get("OPENAI_MODEL", "gpt-4.1")
+
+
+def _preprocess_inputs(data: dict) -> dict:
+    diagnosis = _safe(data.get("diagnosis"))
+    concern = _safe(data.get("concern"))
+    extracted_no_dtcs = []
+
+    if not concern and diagnosis:
+        match = CONCERN_LINE_RE.search(diagnosis)
+        if match:
+            concern = match.group(1).strip()
+            diagnosis = CONCERN_LINE_RE.sub("", diagnosis).strip()
+
+    if concern and NO_DTCS_RE.search(concern):
+        extracted_no_dtcs = NO_DTCS_RE.findall(concern)
+        concern = NO_DTCS_RE.sub("", concern)
+        concern = re.sub(r"\s{2,}", " ", concern).strip(" .,-")
+
+    if extracted_no_dtcs:
+        no_dtcs_line = "No DTCs"
+        if not NO_DTCS_RE.search(diagnosis):
+            diagnosis = f"{diagnosis}\n{no_dtcs_line}".strip() if diagnosis else no_dtcs_line
+
+    data["concern"] = concern
+    data["diagnosis"] = diagnosis
+    return data
 
 
 def _normalize_story(text: str) -> str:
@@ -273,6 +302,9 @@ def _validate_structured_payload(section_mode: str, payload: dict) -> Tuple[bool
         val = payload.get(key)
         if not isinstance(val, str) or not val.strip():
             errs.append(f"Missing or empty required key: {key}")
+            continue
+        if PLACEHOLDER_RE.match(val):
+            errs.append(f"Required key contains placeholder text: {key}")
 
     extra = sorted(set(payload.keys()) - allowed)
     if extra:
@@ -395,13 +427,13 @@ def _enforce_wsm_repair_language(repair_text: str, data: dict) -> str:
         text = re.sub(r"(?i)\bif equipped\b", "", text)
     text = re.sub(r"\s{2,}", " ", text).strip()
 
-    repair_steps = _safe(data.get("repair_steps")).lower()
+    original_repair = _safe(data.get("repair")).lower()
     lines = [ln.strip() for ln in re.split(r"(?<=[.!?])\s+", text) if ln.strip()]
     filtered = []
     for ln in lines:
         ll = ln.lower()
         has_diag = any(k in ll for k in ("diagnos", "dtc", "pinpoint", "verified concern", "root cause"))
-        if has_diag and ll not in repair_steps:
+        if has_diag and ll not in original_repair:
             continue
         filtered.append(ln)
 
@@ -602,6 +634,7 @@ def lambda_handler(event, context):
     try:
         body = event.get("body") or "{}"
         data = json.loads(body) if isinstance(body, str) else (body or {})
+        data = _preprocess_inputs(data)
 
         api_key = _get_openai_key()
         t = _get_templates()
