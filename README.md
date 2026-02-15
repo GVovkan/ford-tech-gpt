@@ -1,39 +1,34 @@
 # ford-tech-gpt
 
-## Auto deploy to AWS Lambda and S3
+This repository contains:
+- `lambda/` - AWS Lambda backend
+- `web/` - static frontend for S3 hosting
 
-This repo now includes a GitHub Actions workflow at `.github/workflows/deploy.yml` that deploys:
-- `lambda/` to AWS Lambda
-- `web/` to an S3 bucket
+## CI/CD auto-deploy overview
 
-The workflow runs on push to `main` and can also be started manually from the Actions tab.
+Auto deploy is implemented with GitHub Actions in `.github/workflows/deploy.yml`.
 
-### 1) Configure GitHub OIDC role in AWS
+On every push to `main` (or manual run), the workflow:
+1. Packages `lambda/` into `lambda-package.zip`
+2. Deploys that zip to an existing AWS Lambda function
+3. Syncs `web/` to an existing S3 bucket
+4. Re-uploads `index.html` with no-cache headers
 
-Create an IAM role trusted by GitHub OIDC and allow it to:
-- `lambda:UpdateFunctionCode` on your Lambda function
-- `s3:ListBucket`, `s3:PutObject`, `s3:DeleteObject` on your web bucket
+For full, step-by-step setup instructions (AWS + GitHub), see:
+- `infra/deploy-setup.md`
 
-Then store the role ARN as a GitHub repository secret:
-- `AWS_ROLE_TO_ASSUME`
+## Quick required GitHub configuration
 
-### 2) Add repository variables
+Add one repository secret:
+- `AWS_ROLE_TO_ASSUME` - IAM Role ARN to assume via GitHub OIDC
 
-Set these in GitHub repo **Settings -> Secrets and variables -> Actions -> Variables**:
-- `AWS_REGION` (example: `us-east-1`)
-- `LAMBDA_FUNCTION_NAME` (your existing Lambda name)
-- `WEB_BUCKET_NAME` (target S3 bucket name)
+Add three repository variables:
+- `AWS_REGION` - example `us-east-1`
+- `LAMBDA_FUNCTION_NAME` - existing Lambda function name
+- `WEB_BUCKET_NAME` - existing S3 bucket name for `web/`
 
-### 3) Deploy flow
+## Notes
 
-1. Push to `main`.
-2. Workflow packages Lambda code into `lambda-package.zip`.
-3. Workflow updates Lambda function code.
-4. Workflow syncs `web/` to S3 with `--delete`.
-5. Workflow re-uploads `index.html` with no-cache headers.
-
-### Notes
-
-- This workflow deploys code/content only. It does not create AWS resources.
-- Keep Lambda environment variables (`OPENAI_PARAM_NAME`, `OPENAI_MODEL`, `CORS_ORIGIN`) configured in Lambda.
-- Keep SSM parameter and IAM permissions in place for runtime access.
+- The workflow deploys code/content only and does not create infrastructure.
+- Lambda runtime env vars still must be configured in AWS (`OPENAI_PARAM_NAME`, `OPENAI_MODEL`, `CORS_ORIGIN`).
+- Runtime access to AWS SSM Parameter Store must remain granted to the Lambda execution role.
