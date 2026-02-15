@@ -46,4 +46,5 @@ Add three repository variables:
 - Major increment step: `+0.1`.
 - Minor increment step: `+0.01`.
 - Keep version badge in HTML and CSS cache-bust query in sync.
+- Every behavior change (frontend or backend) must increment version and add an `UPDATE_LOG.md` entry in the same commit.
 
