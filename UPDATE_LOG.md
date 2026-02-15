@@ -22,3 +22,8 @@
 - Ensures mileage mentions are normalized to `km` and appended in first paragraph when provided in input context.
 - Added backend unit test coverage for inline-label stripping, root-cause format enforcement, metadata defaults, and mileage normalization.
 
+## v0.19-test
+- Updated `/test` UI version markers to `v0.18-test` in HTML title, badge, and CSS cache-bust query.
+- Bumped Lambda header version tag to `v0.08` in `lambda/lambda_function.py`.
+- Extended README versioning rule to explicitly require HTML marker updates for frontend changes and Lambda header version tag bumps for backend changes.
+

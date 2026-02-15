@@ -1,4 +1,4 @@
-# lambda/lambda_function.py (v0.07) - FULL FILE
+# lambda/lambda_function.py (v0.08) - FULL FILE
 # - Loads prompt/rules from lambda/prompts/*.txt
 # - Uses SSM Parameter Store for OpenAI key (free-ish vs Secrets Manager)
 # - Calls OpenAI Responses API

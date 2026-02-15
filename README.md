@@ -47,4 +47,6 @@ Add three repository variables:
 - Minor increment step: `+0.01`.
 - Keep version badge in HTML and CSS cache-bust query in sync.
 - Every behavior change (frontend or backend) must increment version and add an `UPDATE_LOG.md` entry in the same commit.
+- For frontend changes, update version markers in HTML (`<title>`, badge text, and CSS `?v=` query) in the same commit.
+- For backend Lambda changes, bump the version tag in `lambda/lambda_function.py` header comment in the same commit.
 
