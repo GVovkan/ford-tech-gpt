@@ -1,27 +1,47 @@
-<!-- web/test/index.html (v0.07-test) -->
+<!-- web/test/index.html (v0.17-test) -->
 <!doctype html>
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ford Tech Story Creator TEST - v0.07</title>
-  <link rel="stylesheet" href="../styles.css?v=0.07">
+  <title>Ford Tech Story Creator TEST - v0.17</title>
+  <link rel="stylesheet" href="../styles.css?v=0.17">
 </head>
 <body>
   <div class="wrap">
     <div class="topbar">
       <div class="brand">
         <h1>Ford Tech Story Creator</h1>
-        <div class="pill">v0.07-test</div>
+        <div class="pill">v0.17-test</div>
       </div>
 
       <div class="topRight">
         <div class="pill subtle">TEST sandbox - do all innovations here first</div>
-
-        <button class="themeBtn" id="themeBtn" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
-          <span class="themeDot" aria-hidden="true"></span>
-          <span id="themeLabel">Dark</span>
-        </button>
+        <div class="menuWrap">
+          <button class="menuBtn" id="menuBtn" type="button" onclick="toggleSettingsMenu()" aria-expanded="false">Menu</button>
+          <div class="settingsMenu" id="settingsMenu" role="menu" aria-label="Settings menu">
+            <div class="menuRow">
+              <span class="menuLabel">Theme</span>
+              <button class="themeBtn menuThemeBtn" id="themeBtn" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
+                <span class="themeDot" aria-hidden="true"></span>
+                <span id="themeLabel">Dark</span>
+              </button>
+            </div>
+            <div class="menuLabel">GPT model</div>
+            <select id="modelPreset" onchange="applyModelPreset()">
+              <option value="">Model preset</option>
+              <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+              <option value="gpt-4.1">gpt-4.1</option>
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-5">gpt-5</option>
+              <option value="gpt-5.1">gpt-5.1</option>
+              <option value="gpt-5.2">gpt-5.2</option>
+            </select>
+            <input id="modelInput" type="text" placeholder="or enter any model id" spellcheck="false" />
+            <div class="vinHint">Saved locally for /test settings.</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -29,14 +49,22 @@
       <div class="cardHeader">
         <div>
           <div class="cardTitle">Inputs</div>
-          <div class="subtitle">Pick Diag / Repair / Diag + Repair. Add optional instruction when you need “extra detail”.</div>
+          <div class="subtitle">Simple flow: pick story mode, pick job type, add VIN/mileage, then write diagnosis and repair.</div>
         </div>
-        <div class="hint">Tip - keep notes short, story comes out clean</div>
       </div>
 
       <div class="grid">
         <div class="field">
-          <label>Mode</label>
+          <label>Story Mode</label>
+          <select id="sectionMode">
+            <option value="diag_only">Diag only</option>
+            <option value="repair_only">Repair only</option>
+            <option value="diag_repair" selected>Diag + Repair</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Job Type</label>
           <select id="mode">
             <option>Warranty</option>
             <option>CP</option>
@@ -45,7 +73,6 @@
 
         <div class="field">
           <label>VIN</label>
-
           <div class="vinWrap">
             <input id="vin" class="vinInput" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="1FM..." />
             <button class="vinDropBtn" type="button" onclick="toggleVinDropdown()" aria-label="VIN history">&#9662;</button>
@@ -58,56 +85,22 @@
               <div id="vinDropdownList" class="vinDropdownList"></div>
             </div>
           </div>
-
           <div class="vinHint">Tip - click the arrow for recent VINs</div>
         </div>
 
-
         <div class="field">
-          <label>Settings</label>
-          <div class="settingsRow">
-            <select id="modelPreset" onchange="applyModelPreset()">
-              <option value="">Model preset</option>
-              <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-              <option value="gpt-4.1">gpt-4.1</option>
-              <option value="gpt-4o-mini">gpt-4o-mini</option>
-              <option value="gpt-4o">gpt-4o</option>
-              <option value="gpt-5">gpt-5</option>
-              <option value="gpt-5.1">gpt-5.1</option>
-              <option value="gpt-5.2">gpt-5.2</option>
-            </select>
-            <input id="modelInput" type="text" placeholder="or enter any model id" spellcheck="false" />
-          </div>
-          <div class="vinHint">Saved locally for /test settings.</div>
+          <label>Mileage</label>
+          <input id="mileage" type="text" placeholder="Example: 104532" inputmode="numeric" />
         </div>
 
         <div class="field">
-          <label>Story Sections</label>
-          <select id="sectionMode" onchange="applySectionMode()">
-            <option value="diag_repair" selected>Diag + Repair</option>
-            <option value="diag_only">Diag only</option>
-            <option value="repair_only">Repair only</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Concern</label>
-          <textarea id="concern" placeholder="Example: No crank - no ignition response."></textarea>
-        </div>
-
-        <div class="field" id="diagBox">
           <label>Diagnosis</label>
           <textarea id="diagnosis" placeholder="What you checked - what you found - tests/measurements/codes."></textarea>
         </div>
 
-        <div class="field" id="repairBox">
+        <div class="field">
           <label>Repair</label>
           <textarea id="repair" placeholder="What you repaired/replaced/programmed - recheck results."></textarea>
-        </div>
-
-        <div class="field">
-          <label>Comment / Special Instruction (optional)</label>
-          <textarea id="comment" placeholder="Example: Generate extremely detailed explanation for annoying customer. Or: Make story very detailed to justify time."></textarea>
         </div>
 
         <div class="field grid3" style="grid-column: 1 / -1;">
@@ -120,8 +113,8 @@
             <textarea id="time" placeholder="Hours spent and why (intermittent, repeated programming, wiring tracing, etc.)."></textarea>
           </div>
           <div>
-            <label>Extra Notes (optional)</label>
-            <textarea id="extra" placeholder="Anything else you want included (modules, PIDs, scan tool notes, etc.)."></textarea>
+            <label>Notes</label>
+            <textarea id="extra" placeholder="Concern and any extra notes you want included."></textarea>
           </div>
         </div>
       </div>
@@ -164,23 +157,6 @@ const API_URL = "https://wubhcgbdlh.execute-api.ca-west-1.amazonaws.com/generate
 const VIN_STORE_KEY = "vovkan_vins";
 const THEME_KEY = "vovkan_theme";
 const SETTINGS_KEY = "vovkan_settings";
-
-function applySectionMode(){
-  const mode = document.getElementById("sectionMode").value;
-  const diagBox = document.getElementById("diagBox");
-  const repairBox = document.getElementById("repairBox");
-
-  if (mode === "diag_only") {
-    diagBox.style.display = "block";
-    repairBox.style.display = "none";
-  } else if (mode === "repair_only") {
-    diagBox.style.display = "none";
-    repairBox.style.display = "block";
-  } else {
-    diagBox.style.display = "block";
-    repairBox.style.display = "block";
-  }
-}
 
 function setStatus(msg, ok=null){
   const s = document.getElementById("status");
@@ -295,9 +271,22 @@ function closeVinDropdown(){
   document.getElementById("vinDropdown").classList.remove("show");
 }
 
+function toggleSettingsMenu(){
+  const menu = document.getElementById("settingsMenu");
+  const btn = document.getElementById("menuBtn");
+  const open = menu.classList.toggle("show");
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function closeSettingsMenu(){
+  document.getElementById("settingsMenu").classList.remove("show");
+  document.getElementById("menuBtn").setAttribute("aria-expanded", "false");
+}
+
 function escapeToClose(e){
   if (e.key === "Escape"){
     closeVinDropdown();
+    closeSettingsMenu();
   }
 }
 
@@ -305,6 +294,10 @@ function clickOutsideToClose(e){
   const wrap = document.querySelector(".vinWrap");
   if (!wrap.contains(e.target)){
     closeVinDropdown();
+  }
+  const menuWrap = document.querySelector(".menuWrap");
+  if (!menuWrap.contains(e.target)){
+    closeSettingsMenu();
   }
 }
 
@@ -351,40 +344,64 @@ function hydrateSettings(){
   modelInput.addEventListener("blur", onModelInputChange);
 }
 
+function buildPayload(){
+  const vinValue = document.getElementById("vin").value;
+  const diagnosis = document.getElementById("diagnosis").value.trim();
+  const repair = document.getElementById("repair").value.trim();
+  const notes = document.getElementById("extra").value.trim();
+  const mileage = document.getElementById("mileage").value.trim();
+
+  if (!diagnosis && !repair && !notes){
+    return { error: "Add diagnosis, repair, or notes before generating." };
+  }
+
+  const concernFromNotes = notes;
+  const normalizedExtra = mileage ? `Mileage ${mileage}${notes ? ` - ${notes}` : ""}` : notes;
+
+  return {
+    payload: {
+      mode: document.getElementById("mode").value,
+      sectionMode: document.getElementById("sectionMode").value,
+      vin: vinValue,
+      concern: concernFromNotes,
+      diagnosis: diagnosis || "No diagnosis details provided",
+      repair: repair || "No repair details provided",
+      comment: "",
+      parts: document.getElementById("parts").value,
+      time: document.getElementById("time").value,
+      extra: normalizedExtra,
+      model: document.getElementById("modelInput").value.trim()
+    }
+  };
+}
+
 async function generate() {
   const out = document.getElementById("out");
   out.textContent = "";
+
+  const built = buildPayload();
+  if (built.error){
+    setStatus(built.error, false);
+    out.textContent = "Please add at least one input in Diagnosis, Repair, or Notes.";
+    return;
+  }
+
   setStatus("Generating...", null);
   setLoading(true);
 
-  const vinValue = document.getElementById("vin").value;
-  addVinToHistory(vinValue);
-
-  const payload = {
-    mode: document.getElementById("mode").value,
-    sectionMode: document.getElementById("sectionMode").value,
-    vin: vinValue,
-    concern: document.getElementById("concern").value,
-    diagnosis: document.getElementById("diagnosis").value,
-    repair: document.getElementById("repair").value,
-    comment: document.getElementById("comment").value,
-    parts: document.getElementById("parts").value,
-    time: document.getElementById("time").value,
-    extra: document.getElementById("extra").value,
-    model: document.getElementById("modelInput").value.trim()
-  };
+  addVinToHistory(document.getElementById("vin").value);
 
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(built.payload)
     });
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      out.textContent = "Error: " + (data.error || data.message || "unknown") + (data.details ? "\n\n" + data.details : "");
-      setStatus("Error returned from API", false);
+      out.textContent = "Could not generate story. Please adjust the text and try again." + (data.details ? "\n\n" + data.details : "");
+      setStatus(data.error || "Error returned from API", false);
       setLoading(false);
       return;
     }
@@ -406,7 +423,6 @@ async function copyOut() {
     return;
   }
 
-  // Works best on HTTPS (CloudFront). Fallback helps on some browsers.
   try {
     if (navigator.clipboard && window.isSecureContext){
       await navigator.clipboard.writeText(text);
@@ -434,7 +450,7 @@ async function copyOut() {
 }
 
 function clearAll(){
-  ["vin","concern","diagnosis","repair","comment","parts","time","extra"].forEach(id => {
+  ["vin","mileage","diagnosis","repair","parts","time","extra"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
@@ -442,7 +458,6 @@ function clearAll(){
   setStatus("", null);
 }
 
-applySectionMode();
 setTheme(getTheme());
 renderVinDropdown();
 hydrateSettings();
