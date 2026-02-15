@@ -14,6 +14,8 @@ from lambda_function import (
     _validate_structured_payload,
     _format_warranty_story,
     _json_schema_for_section_mode,
+    _preprocess_inputs,
+    _generate_structured_warranty_story,
 )
 
 
@@ -160,6 +162,120 @@ class TestWarrantyStructuredOutput(unittest.TestCase):
         self.assertIn("73420 km", story)
         self.assertIn("Causal Part: Not provided", story)
         self.assertIn("Labor Op: Not provided", story)
+
+    def test_preprocess_extracts_concern_from_diagnosis_and_preserves_no_dtcs_in_diagnosis(self):
+        data = {
+            "concern": "",
+            "diagnosis": "concern: Liftgate will not latch closed\nFound broken liftgate latch spring. no DTCs present.",
+            "repair": "Replaced liftgate latch assembly and verified latch operation.",
+        }
+
+        processed = _preprocess_inputs(data)
+
+        self.assertEqual(processed["concern"], "Liftgate will not latch closed")
+        self.assertNotIn("concern:", processed["diagnosis"].lower())
+        self.assertIn("broken liftgate latch spring", processed["diagnosis"].lower())
+        self.assertIn("no dtcs", processed["diagnosis"].lower())
+
+    def test_screenshot_like_diag_repair_story_keeps_real_content(self):
+        raw_data = {
+            "mode": "Warranty",
+            "sectionMode": "diag_repair",
+            "vin": "1FTFW1E50NFA00008",
+            "diagnosis": "concern: Liftgate does not latch closed\nFound broken liftgate latch spring. no DTCs present.",
+            "repair": "Replaced liftgate latch assembly and verified proper latch operation.",
+            "causalPart": "ML3Z-7843150-A",
+            "laborOp": "50123A",
+        }
+        data = _preprocess_inputs(raw_data)
+        payload = {
+            "verification": "Verified concern with liftgate not latching closed.",
+            "diagnosis": "Found broken liftgate latch spring and no DTCs present.",
+            "cause": "Broken liftgate latch spring prevented proper latch engagement.",
+            "repair_performed": "Replaced liftgate latch assembly and verified proper latch operation.",
+            "post_repair_verification": "Confirmed liftgate latches and unlatches correctly.",
+        }
+
+        with patch("lambda_function._decode_vin", return_value={"model": "f-150", "body": "pickup", "series": "supercrew"}):
+            story = _format_warranty_story("diag_repair", payload, data)
+
+        self.assertIn("liftgate not latching closed", story.lower())
+        self.assertIn("broken liftgate latch spring", story.lower())
+        self.assertIn("replaced liftgate latch assembly", story.lower())
+        self.assertNotIn("Not provided", story)
+
+    def test_validate_structured_payload_rejects_placeholder_required_fields(self):
+        payload = {
+            "verification": "Verified concern with latch bind.",
+            "diagnosis": "Found broken latch spring at latch mechanism.",
+            "cause": "Not provided",
+            "repair_performed": "Replaced latch assembly and torqued fasteners to specification.",
+            "post_repair_verification": "Verified latch operation and concern resolved.",
+        }
+
+        ok, errs = _validate_structured_payload("diag_repair", payload)
+
+        self.assertFalse(ok)
+        self.assertTrue(any("placeholder text: cause" in e.lower() for e in errs))
+
+    def test_structured_generation_retries_when_model_returns_placeholder(self):
+        data = {
+            "mode": "Warranty",
+            "sectionMode": "diag_repair",
+            "vin": "1FTFW1E50NFA00007",
+            "diagnosis": "Found broken latch spring.",
+            "repair": "Replaced latch spring and verified operation.",
+            "causalPart": "ML3Z-7843150-A",
+            "laborOp": "50123A",
+        }
+        t = {"system_rules": "rules"}
+
+        first = {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"verification":"Verified concern.","diagnosis":"Found broken latch spring.","cause":"Not provided","repair_performed":"Replaced latch spring.","post_repair_verification":"Verified repair."}',
+                        }
+                    ]
+                }
+            ]
+        }
+        second = {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"verification":"Verified concern with liftgate not latching.","diagnosis":"Found broken latch spring.","cause":"Broken latch spring prevented latch engagement.","repair_performed":"Replaced latch spring and torqued fasteners to specification.","post_repair_verification":"Verified latch operation and concern resolved."}',
+                        }
+                    ]
+                }
+            ]
+        }
+
+        class _Resp:
+            def __init__(self, payload):
+                self.payload = payload
+            def read(self):
+                import json
+                return json.dumps(self.payload).encode("utf-8")
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        responses = iter([_Resp(first), _Resp(second)])
+
+        with patch("lambda_function.urllib.request.urlopen", side_effect=lambda *a, **k: next(responses)), \
+             patch("lambda_function._decode_vin", return_value={"model": "f-150", "body": "pickup", "series": "supercrew"}):
+            story, errs = _generate_structured_warranty_story(data, "fake-key", "gpt-4.1", t)
+
+        self.assertFalse(errs)
+        self.assertIn("Root cause - Broken latch spring prevented latch engagement.", story)
+        self.assertNotIn("Not provided", story)
+
 
     def test_validate_structured_payload_rejects_extra(self):
         payload = {
