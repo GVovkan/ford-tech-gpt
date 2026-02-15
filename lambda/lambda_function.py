@@ -294,27 +294,66 @@ def _remove_time_lines(text: str) -> str:
 
 
 def _warranty_metadata_lines(data: dict) -> list:
-    coverage = _safe(data.get("coverage"))
-    extra = _safe(data.get("extra"))
-    comment = _safe(data.get("comment"))
-    hints = " ".join([coverage, extra, comment]).lower()
-    requested = any(k in hints for k in ("warranty", "causal part", "labor op"))
-
     causal_part = _safe(data.get("causalPart") or data.get("causal_part"))
     labor_op = _safe(data.get("laborOp") or data.get("labor_op"))
-    if not requested and not causal_part and not labor_op:
-        return []
     return [
         f"Causal Part: {causal_part or 'Not provided'}",
         f"Labor Op: {labor_op or 'Not provided'}",
     ]
 
 
+def _km_suffix(data: dict) -> str:
+    mileage = _safe(data.get("mileage") or data.get("odometer") or data.get("km"))
+    if mileage:
+        if re.search(r"\bkm\b", mileage, flags=re.IGNORECASE):
+            return mileage
+        return f"{mileage} km"
+
+    extra = _safe(data.get("extra"))
+    if not extra:
+        return ""
+
+    with_km = re.search(r"\b(\d{3,7})\s*km\b", extra, flags=re.IGNORECASE)
+    if with_km:
+        return f"{with_km.group(1)} km"
+
+    tagged = re.search(r"\b(?:mileage|odometer|km)\s*[:=-]?\s*(\d{3,7})\b", extra, flags=re.IGNORECASE)
+    if tagged:
+        return f"{tagged.group(1)} km"
+
+    return ""
+
+
 def _format_warranty_story(section_mode: str, payload: dict, data: dict) -> str:
-    lines = []
-    for key in SECTION_ORDER[section_mode]:
-        lines.append(f"{SECTION_LABELS[key]}: {_clean_sentence(payload.get(key, ''))}")
+    verification = _clean_sentence(payload.get("verification", ""))
+    diagnosis = _clean_sentence(payload.get("diagnosis", "")) if section_mode in ("diag_only", "diag_repair") else ""
+    cause = _clean_sentence(payload.get("cause", "")) if section_mode in ("diag_only", "diag_repair") else ""
+    repair = _clean_sentence(payload.get("repair_performed", "")) if section_mode in ("repair_only", "diag_repair") else ""
+    post_repair = _clean_sentence(payload.get("post_repair_verification", "")) if section_mode in ("repair_only", "diag_repair") else ""
+
+    first_line = verification
+    km_value = _km_suffix(data)
+    if km_value and "km" not in verification.lower():
+        first_line = first_line.rstrip(".") + f" at {km_value}."
+    if diagnosis:
+        first_line = f"{first_line} {diagnosis}"
+
+    lines = [first_line.strip()]
+
+    if cause:
+        root_line = f"Root cause - {cause.rstrip('.')}"
+        if repair:
+            root_line += f" {repair}"
+        if root_line[-1] not in ".!?":
+            root_line += "."
+        lines.append(root_line)
+    elif repair:
+        lines.append(repair)
+
     lines.extend(_warranty_metadata_lines(data))
+    if post_repair:
+        lines.append(post_repair)
+
     final = _remove_time_lines("\n".join(lines))
     final = final.replace("—", "-").replace("–", "-")
     return re.sub(r"\n{2,}", "\n", final).strip()

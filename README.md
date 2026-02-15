@@ -43,7 +43,9 @@ Add three repository variables:
 ## Versioning rule
 
 - Always bump UI version on every update.
+- Version must always increase (raise) from the previous value - never reuse or lower a version.
 - Major increment step: `+0.1`.
 - Minor increment step: `+0.01`.
 - Keep version badge in HTML and CSS cache-bust query in sync.
+- Record every version bump in `UPDATE_LOG.md`.
 
