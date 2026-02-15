@@ -138,6 +138,29 @@ class TestWarrantyStructuredOutput(unittest.TestCase):
         self.assertNotIn("if equipped", story_default.lower())
         self.assertIn("if equipped", story_allowed.lower())
 
+
+    def test_formatter_strips_inline_labels_and_enforces_metadata_defaults(self):
+        payload = {
+            "verification": "Verification: verified concern with seatback not latching",
+            "diagnosis": "Diagnosis: found failed latch spring",
+            "cause": "Root cause: failed latch spring",
+        }
+        data = {
+            "vin": "1FTFW1E50NFA00006",
+            "extra": "Vehicle arrived at 73420",
+        }
+
+        with patch("lambda_function._decode_vin", return_value={"model": "f-150", "body": "pickup", "series": "supercrew"}):
+            story = _format_warranty_story("diag_only", payload, data)
+
+        self.assertNotIn("Verification:", story)
+        self.assertNotIn("Diagnosis:", story)
+        self.assertNotIn("Root cause:", story)
+        self.assertIn("Root cause -", story)
+        self.assertIn("73420 km", story)
+        self.assertIn("Causal Part: Not provided", story)
+        self.assertIn("Labor Op: Not provided", story)
+
     def test_validate_structured_payload_rejects_extra(self):
         payload = {
             "verification": "Verified concern.",

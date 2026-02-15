@@ -1,4 +1,4 @@
-# lambda/lambda_function.py (v0.06) - FULL FILE
+# lambda/lambda_function.py (v0.08) - FULL FILE
 # - Loads prompt/rules from lambda/prompts/*.txt
 # - Uses SSM Parameter Store for OpenAI key (free-ish vs Secrets Manager)
 # - Calls OpenAI Responses API
@@ -25,6 +25,7 @@ _TEMPLATES = None
 MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$")
 FORBIDDEN_WORDS_RE = re.compile(r"\b(likely|possible|possibly|indicates|indicated|indicating|concluded|suspect|suspected|appears|seems|maybe|perhaps)\b", re.IGNORECASE)
 TIME_REFERENCES_RE = re.compile(r"\b(time|hour|hours|hr|hrs|justification)\b", re.IGNORECASE)
+MILEAGE_RE = re.compile(r"\b(\d{3,7})\s*(km|kms|kilometers?|kilometres?)?\b", re.IGNORECASE)
 VIN_DECODE_URL = "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/{vin}?format=json"
 _VIN_CACHE = {}
 
@@ -430,6 +431,33 @@ def _enforce_wsm_repair_language(repair_text: str, data: dict) -> str:
 def _sanitize_non_metadata_text(text: str) -> str:
     return (text or "").replace(":", " -")
 
+
+def _strip_inline_label_prefix(text: str, labels: tuple) -> str:
+    cleaned = _normalize_story(text or "")
+    if not cleaned:
+        return ""
+    pattern = r"(?i)^\s*(?:" + "|".join(re.escape(lbl) for lbl in labels) + r")\s*[:\-]\s*"
+    return re.sub(pattern, "", cleaned).strip()
+
+
+def _extract_mileage_value(data: dict) -> str:
+    for source in (_safe(data.get("mileage")), _safe(data.get("extra"))):
+        if not source:
+            continue
+        match = MILEAGE_RE.search(source)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _ensure_mileage_in_first_block(text: str, data: dict) -> str:
+    mileage = _extract_mileage_value(data)
+    if not mileage:
+        return text
+    if re.search(rf"\b{re.escape(mileage)}\s*km\b", text, re.IGNORECASE):
+        return text
+    return f"{text.rstrip('.')} at {mileage} km."
+
 def _remove_time_lines(text: str) -> str:
     lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
     filtered = [ln for ln in lines if not TIME_REFERENCES_RE.search(ln)]
@@ -448,11 +476,23 @@ def _warranty_metadata_lines(data: dict) -> list:
 def _format_warranty_story(section_mode: str, payload: dict, data: dict) -> str:
     vin_caps = _vin_capabilities(_decode_vin(_safe(data.get("vin"))))
 
-    verification = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("verification", ""), data, vin_caps)))
-    diagnosis = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("diagnosis", ""), data, vin_caps)))
-    cause = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("cause", ""), data, vin_caps)))
-    repair = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("repair_performed", ""), data, vin_caps)))
-    post = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(payload.get("post_repair_verification", ""), data, vin_caps)))
+    verification_raw = _strip_inline_label_prefix(
+        payload.get("verification", ""),
+        ("verification", "verified concern", "concern", "customer concern"),
+    )
+    diagnosis_raw = _strip_inline_label_prefix(payload.get("diagnosis", ""), ("diagnosis", "inspection", "finding", "findings"))
+    cause_raw = _strip_inline_label_prefix(payload.get("cause", ""), ("root cause", "cause", "causal part"))
+    repair_raw = _strip_inline_label_prefix(payload.get("repair_performed", ""), ("repair", "repair performed", "action", "corrective action"))
+    post_raw = _strip_inline_label_prefix(
+        payload.get("post_repair_verification", ""),
+        ("post repair verification", "verification", "verified repair", "final verification"),
+    )
+
+    verification = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(verification_raw, data, vin_caps)))
+    diagnosis = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(diagnosis_raw, data, vin_caps)))
+    cause = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(cause_raw, data, vin_caps)))
+    repair = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(repair_raw, data, vin_caps)))
+    post = _sanitize_non_metadata_text(_clean_sentence(_filter_unvalidated_claims(post_raw, data, vin_caps)))
 
     if section_mode in ("repair_only", "diag_repair"):
         repair = _enforce_wsm_repair_language(repair, data)
@@ -464,6 +504,8 @@ def _format_warranty_story(section_mode: str, payload: dict, data: dict) -> str:
     if section_mode in ("diag_only", "diag_repair") and payload.get("diagnosis"):
         block1_parts.append(diagnosis)
     block1 = " ".join(block1_parts).strip()
+    if block1:
+        block1 = _ensure_mileage_in_first_block(block1, data)
 
     block2_parts = []
     if section_mode in ("diag_only", "diag_repair") and payload.get("cause"):
