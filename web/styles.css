@@ -1,4 +1,4 @@
-/* web/styles.css (v0.07) */
+/* web/styles.css (v0.17) */
 :root{
   --bg:#0b0f14;
   --panel:#0f1621;
@@ -130,6 +130,49 @@ body{
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
+
+.menuWrap{ position: relative; }
+
+.menuBtn{
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+
+.settingsMenu{
+  position:absolute;
+  right:0;
+  top:44px;
+  width: 280px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: var(--shadow);
+  padding: 10px;
+  display:none;
+  z-index:60;
+}
+
+.settingsMenu.show{ display:block; }
+
+.menuRow{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.menuLabel{
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.menuThemeBtn{ padding: 6px 10px; }
+
 .card{
   background: linear-gradient(180deg,
     color-mix(in srgb, var(--panel) 90%, transparent),
@@ -238,12 +281,6 @@ input:focus, select:focus, textarea:focus{
 }
 
 .vinWrap{ position: relative; }
-
-.settingsRow{
-  display:grid;
-  grid-template-columns: 210px 1fr;
-  gap:8px;
-}
 
 
 .vinDropBtn{
@@ -534,7 +571,6 @@ button:disabled{ opacity: .65; cursor:not-allowed; }
 
 @media (max-width: 900px){
   .grid{ grid-template-columns: 1fr; }
-  .settingsRow{ grid-template-columns: 1fr; }
   .grid3{ grid-template-columns: 1fr; }
   .status{ margin-left: 0; width: 100%; }
   .topbar{ flex-direction: column; align-items: flex-start; }

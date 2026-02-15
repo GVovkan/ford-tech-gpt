@@ -38,3 +38,12 @@ Add three repository variables:
 - Use `web/test/index.html` as the `/test` sandbox route for experiments and new UI/backend integration ideas.
 - Keep `web/index.html` as the stable production entrypoint.
 - Promote changes from `/test` into production only when explicitly requested.
+
+
+## Versioning rule
+
+- Always bump UI version on every update.
+- Major increment step: `+0.1`.
+- Minor increment step: `+0.01`.
+- Keep version badge in HTML and CSS cache-bust query in sync.
+
