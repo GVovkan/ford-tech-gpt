@@ -1,4 +1,4 @@
-const API_URL = window.location.origin + "/generate";
+const API_URL = "https://wubhcgbdlh.execute-api.ca-west-1.amazonaws.com/generate";
 
 (function initTheme(){
   const saved = localStorage.getItem("vovkan_theme");
