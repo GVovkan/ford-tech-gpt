@@ -1,10 +1,15 @@
-# prompts/section_diag_only.txt (v0.05)
-Context (do not repeat these labels in the output):
-Mode = {mode}
-VIN = {vin}
-Concern = {concern}
-Diagnosis notes = {diagnosis}
-Parts used = {parts}
-Time justification = {time}
-Extra notes = {extra}
-Task: Write a technician story focused on verification and diagnosis only. Do not include repair actions unless repair details were provided in extra notes.
+Mode logic:
+For diag mode, confirm concern if provided, use codes_symptoms and diag_steps, identify cause only if explicitly provided, and do not include repair wording.
+
+Context (do not echo labels):
+job_type={job_type}
+mode={mode}
+vehicle={vehicle}
+vin={vin}
+mileage={mileage}
+concern={concern}
+codes_symptoms={codes_symptoms}
+diag_steps={diag_steps}
+extra_instructions={extra_instructions}
+
+Task: Produce final technician narrative in diag mode only.

@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 mock_boto3 = types.SimpleNamespace(client=lambda *args, **kwargs: object())
 sys.modules.setdefault("boto3", mock_boto3)
 
-from lambda_function import _build_warranty_simple_user_prompt, lambda_handler
+from lambda_function import _build_prompt, _validate_story_output, lambda_handler
 
 
 class _Resp:
@@ -26,45 +26,65 @@ class _Resp:
         return False
 
 
-class TestWarrantySimpleFlow(unittest.TestCase):
-    def test_warranty_prompt_uses_exact_field_template(self):
-        prompt = _build_warranty_simple_user_prompt(
+class TestPromptDrivenFlow(unittest.TestCase):
+    def test_build_prompt_uses_new_contract_fields(self):
+        prompt = _build_prompt(
             {
+                "job_type": "warranty",
+                "mode": "diag_repair",
+                "vehicle": "2022 F-150",
                 "vin": "1FTFW1E50NFA00001",
-                "mileage": "73420 km",
-                "diagnosis": "Latch spring broken.",
-                "repair": "Replaced latch assembly.",
-                "parts": "Latch assembly",
-                "time": "0.6",
-                "comment": "Verified operation.",
-                "extra": "Road test complete.",
+                "mileage": "73420",
+                "concern": "No crank at random",
+                "codes_symptoms": "U0100",
+                "diag_steps": "Checked power and ground at module",
+                "repair_steps": "Repaired damaged harness section",
+                "extra_instructions": "Keep concise",
             }
         )
-        self.assertIn("Provide the fields exactly as:", prompt)
-        self.assertIn("VIN: 1FTFW1E50NFA00001", prompt)
-        self.assertIn("Mileage: 73420 km", prompt)
-        self.assertIn("Diagnosis (mandatory): Latch spring broken.", prompt)
-        self.assertIn("Repair (optional): Replaced latch assembly.", prompt)
-        self.assertIn("Parts (optional): Latch assembly", prompt)
-        self.assertIn("Time (optional): 0.6", prompt)
-        self.assertIn("Notes (optional): Verified operation. | Road test complete.", prompt)
+        self.assertIn("job_type=warranty", prompt)
+        self.assertIn("mode=diag_repair", prompt)
+        self.assertIn("vehicle=2022 F-150", prompt)
+        self.assertIn("codes_symptoms=U0100", prompt)
+        self.assertIn("repair_steps=Repaired damaged harness section", prompt)
 
-    def test_warranty_calls_openai_once_and_returns_raw_text(self):
+    def test_output_validator_detects_forbidden_patterns(self):
+        self.assertFalse(_validate_story_output("• Invalid bullet"))
+        self.assertFalse(_validate_story_output("1. Numbered"))
+        self.assertFalse(_validate_story_output("Line 1\n\nLine 2"))
+        self.assertFalse(_validate_story_output("Customer states concern"))
+        self.assertFalse(_validate_story_output("VIN: 123"))
+        self.assertFalse(_validate_story_output("Bad dash — value"))
+        self.assertTrue(_validate_story_output("Verified concern and performed directed diagnostics"))
+
+    def test_lambda_retries_on_failed_format_then_returns_valid_story(self):
         event = {
             "requestContext": {"http": {"method": "POST"}},
-            "body": json.dumps({"mode": "Warranty", "diagnosis": "Found broken latch spring."}),
+            "body": json.dumps({"job_type": "warranty", "mode": "diag", "concern": "No start"}),
         }
-        model_text = "• Customer states latch failed."
-        fake_result = {"output": [{"content": [{"type": "output_text", "text": model_text}]}]}
+
+        first = {"output": [{"content": [{"type": "output_text", "text": "• invalid"}]}]}
+        second = {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": "Verified concern and followed provided diagnostic steps with no additional assumptions",
+                        }
+                    ]
+                }
+            ]
+        }
 
         with patch("lambda_function._get_openai_key", return_value="k"), patch(
-            "lambda_function.urllib.request.urlopen", return_value=_Resp(fake_result)
+            "lambda_function.urllib.request.urlopen", side_effect=[_Resp(first), _Resp(second)]
         ) as mocked_urlopen:
             response = lambda_handler(event, None)
 
         self.assertEqual(response["statusCode"], 200)
-        self.assertEqual(mocked_urlopen.call_count, 1)
-        self.assertEqual(json.loads(response["body"])["story"], model_text)
+        self.assertEqual(mocked_urlopen.call_count, 2)
+        self.assertIn("Verified concern", json.loads(response["body"])["story"])
 
 
 if __name__ == "__main__":

@@ -1,11 +1,16 @@
-# prompts/section_diag_repair.txt (v0.05)
-Context (do not repeat these labels in the output):
-Mode = {mode}
-VIN = {vin}
-Concern = {concern}
-Diagnosis notes = {diagnosis}
-Repair notes = {repair}
-Parts used = {parts}
-Time justification = {time}
-Extra notes = {extra}
-Task: Write a technician story that includes diagnosis and repair with final verification if repair details are provided.
+Mode logic:
+For diag_repair mode, confirm concern if provided, include diagnostics from provided fields, include root cause only if explicitly stated, include performed repair, and include verification only when provided.
+
+Context (do not echo labels):
+job_type={job_type}
+mode={mode}
+vehicle={vehicle}
+vin={vin}
+mileage={mileage}
+concern={concern}
+codes_symptoms={codes_symptoms}
+diag_steps={diag_steps}
+repair_steps={repair_steps}
+extra_instructions={extra_instructions}
+
+Task: Produce final technician narrative in diag_repair mode.
