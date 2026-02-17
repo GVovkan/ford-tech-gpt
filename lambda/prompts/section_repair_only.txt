@@ -1,10 +1,14 @@
-# prompts/section_repair_only.txt (v0.05)
-Context (do not repeat these labels in the output):
-Mode = {mode}
-VIN = {vin}
-Concern = {concern}
-Repair notes = {repair}
-Parts used = {parts}
-Time justification = {time}
-Extra notes = {extra}
-Task: Write a technician story focused on repair actions and post-repair verification. Do not invent diagnosis steps unless they were provided in extra notes.
+Mode logic:
+For repair mode, describe repair_steps, explain result only if supplied, and do not expand diagnostic content.
+
+Context (do not echo labels):
+job_type={job_type}
+mode={mode}
+vehicle={vehicle}
+vin={vin}
+mileage={mileage}
+concern={concern}
+repair_steps={repair_steps}
+extra_instructions={extra_instructions}
+
+Task: Produce final technician narrative in repair mode only.

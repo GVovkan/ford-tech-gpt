@@ -1,7 +1,25 @@
-# prompts/output_rules.txt (v0.05)
-Content rules:
-Write one continuous technician story based on the inputs.
-Do not echo the input labels or field names.
-Do not invent missing information.
-If a field is blank, omit it instead of guessing.
-Include final verification / re-test results only if repair info is provided.
+Absolute output rules (non-negotiable):
+Return plain text only.
+No bullet points.
+No numbered lists.
+No empty lines.
+No section headers.
+No labels like VIN:, Diagnosis:, Repair:, Parts:, Time:.
+Never use the phrase Customer states.
+Use only hyphen (-), never em dash or en dash.
+Write continuous technician narrative.
+
+Forbidden invention policy:
+Do not invent tests, measurements, PIDs, modules, tools, parts, procedures, or results.
+Only rephrase or organize provided input.
+No assumptions and no gap-filling.
+
+Internal self-check before final output:
+No bullets.
+No headers.
+No forbidden phrase.
+No invented steps.
+Correct mode logic.
+Hyphen only.
+No empty lines.
+If any check fails, regenerate internally and output only compliant text.

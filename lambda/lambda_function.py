@@ -1,12 +1,15 @@
 import json
 import os
+import re
 import boto3
 import urllib.request
 import urllib.error
 
 ssm = boto3.client("ssm")
 OPENAI_URL = "https://api.openai.com/v1/responses"
+MAX_GENERATION_ATTEMPTS = 3
 _TEMPLATES = None
+
 
 def _load_text(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
@@ -20,12 +23,12 @@ def _load_templates() -> dict:
         "system_rules": _load_text(os.path.join(pdir, "system_rules.txt")).strip(),
         "base_rules": _load_text(os.path.join(pdir, "base_rules.txt")).strip(),
         "mode_rules": {
-            "Warranty": _load_text(os.path.join(pdir, "mode_warranty.txt")).strip(),
-            "CP": _load_text(os.path.join(pdir, "mode_cp.txt")).strip(),
+            "warranty": _load_text(os.path.join(pdir, "mode_warranty.txt")).strip(),
+            "cp": _load_text(os.path.join(pdir, "mode_cp.txt")).strip(),
         },
         "section_inputs": {
-            "diag_only": _load_text(os.path.join(pdir, "section_diag_only.txt")).strip(),
-            "repair_only": _load_text(os.path.join(pdir, "section_repair_only.txt")).strip(),
+            "diag": _load_text(os.path.join(pdir, "section_diag_only.txt")).strip(),
+            "repair": _load_text(os.path.join(pdir, "section_repair_only.txt")).strip(),
             "diag_repair": _load_text(os.path.join(pdir, "section_diag_repair.txt")).strip(),
         },
         "output_rules": _load_text(os.path.join(pdir, "output_rules.txt")).strip(),
@@ -66,57 +69,46 @@ def _select_model(data: dict) -> str:
     return _safe(data.get("model")) or os.environ.get("OPENAI_MODEL", "gpt-4.1")
 
 
+def _normalized_job_type(data: dict) -> str:
+    raw = _safe(data.get("job_type") or data.get("mode")).lower()
+    if raw in ("warranty", "cp"):
+        return raw
+    return "warranty"
+
+
+def _normalized_mode(data: dict) -> str:
+    raw = _safe(data.get("mode") or data.get("sectionMode") or "diag_repair").lower()
+    mode_map = {
+        "diag_only": "diag",
+        "repair_only": "repair",
+        "diag_repair": "diag_repair",
+        "diag": "diag",
+        "repair": "repair",
+    }
+    return mode_map.get(raw, "diag_repair")
+
+
 def _build_prompt(data: dict) -> str:
     t = _get_templates()
-    mode = _safe(data.get("mode")) or "Warranty"
-    if mode not in ("Warranty", "CP"):
-        mode = "Warranty"
+    job_type = _normalized_job_type(data)
+    mode = _normalized_mode(data)
 
-    section_mode = _safe(data.get("sectionMode")) or "diag_repair"
-    if section_mode not in ("diag_only", "repair_only", "diag_repair"):
-        section_mode = "diag_repair"
-
-    comment = _safe(data.get("comment"))
+    # Supports new API contract while remaining backward compatible with existing frontend fields.
     ctx = {
+        "job_type": job_type,
         "mode": mode,
+        "vehicle": _safe(data.get("vehicle")),
         "vin": _safe(data.get("vin")),
+        "mileage": _safe(data.get("mileage")),
         "concern": _safe(data.get("concern")),
-        "diagnosis": _safe(data.get("diagnosis")),
-        "repair": _safe(data.get("repair")),
-        "parts": _safe(data.get("parts")),
-        "time": _safe(data.get("time")),
-        "extra": _safe(data.get("extra")),
-        "comment": comment,
+        "codes_symptoms": _safe(data.get("codes_symptoms") or data.get("diagnosis")),
+        "diag_steps": _safe(data.get("diag_steps") or data.get("diagnosis")),
+        "repair_steps": _safe(data.get("repair_steps") or data.get("repair")),
+        "extra_instructions": _safe(data.get("extra_instructions") or data.get("comment") or data.get("extra")),
     }
 
-    rules = "\n".join([t["base_rules"], t["mode_rules"][mode], t["output_rules"]]).strip()
-    if comment:
-        rules += "\nAdditional instruction (optional): " + comment + "\nStill obey ALL formatting rules above."
-
-    return (rules + "\n\n" + t["section_inputs"][section_mode].format(**ctx)).strip()
-
-
-def _build_warranty_simple_user_prompt(data: dict) -> str:
-    vin = _safe(data.get("vin"))
-    mileage = _safe(data.get("mileage"))
-    diagnosis = _safe(data.get("diagnosis"))
-    repair = _safe(data.get("repair"))
-    parts = _safe(data.get("parts"))
-    time = _safe(data.get("time"))
-    notes_values = [_safe(data.get("notes")), _safe(data.get("comment")), _safe(data.get("extra"))]
-    notes = " | ".join([value for value in notes_values if value])
-
-    return (
-        "Provide the fields exactly as:\n\n"
-        f"VIN: {vin}\n"
-        f"Mileage: {mileage}\n"
-        f"Diagnosis (mandatory): {diagnosis}\n"
-        f"Repair (optional): {repair}\n"
-        f"Parts (optional): {parts}\n"
-        f"Time (optional): {time}\n"
-        f"Notes (optional): {notes}\n\n"
-        "Now write the complete warranty RO story following all rules."
-    )
+    rules = "\n".join([t["base_rules"], t["mode_rules"][job_type], t["output_rules"]]).strip()
+    return (rules + "\n\n" + t["section_inputs"][mode].format(**ctx)).strip()
 
 
 def _extract_story(result: dict) -> str:
@@ -147,6 +139,31 @@ def _openai_story_call(api_key: str, model: str, system_prompt: str, user_prompt
     return _extract_story(result)
 
 
+def _validate_story_output(story: str) -> bool:
+    checks = [
+        r"(?m)^\s*[-*•]\s+",  # bullets
+        r"(?m)^\s*\d+[.)]\s+",  # numbered lists
+        r"\n\s*\n",  # empty lines
+        r"Customer states",  # forbidden phrase
+        r"(?mi)^\s*(VIN|Diagnosis|Repair|Parts|Time)\s*:",  # labels
+        r"[—–]",  # em/en dashes
+    ]
+    return not any(re.search(pattern, story) for pattern in checks)
+
+
+def _generate_with_validation(api_key: str, model: str, system_prompt: str, user_prompt: str) -> str:
+    prompt = user_prompt
+    for _ in range(MAX_GENERATION_ATTEMPTS):
+        story = _openai_story_call(api_key, model, system_prompt, prompt)
+        if _validate_story_output(story):
+            return story
+        prompt = (
+            user_prompt
+            + "\n\nPrevious output violated formatting rules. Regenerate strictly."
+        )
+    raise ValueError("Model output failed formatting validation after retries")
+
+
 def lambda_handler(event, context):
     method = event.get("requestContext", {}).get("http", {}).get("method", "")
     if method == "OPTIONS":
@@ -155,34 +172,18 @@ def lambda_handler(event, context):
     try:
         body = event.get("body") or "{}"
         data = json.loads(body) if isinstance(body, str) else (body or {})
-        mode = _safe(data.get("mode")) or "Warranty"
 
         api_key = _get_openai_key()
         model = _select_model(data)
 
-        if mode == "Warranty":
-            system_prompt = (
-                "You are a professional Ford dealership technician in Canada writing a warranty repair story for an RO. "
-                "Output plain text only, no markdown. No bullet points, no numbered lists. No section headers or labels like “Verification:” "
-                "or “Diagnosis:”. Use hyphens only (-). Never write “Customer states”. Never write “Not provided”, “N/A”, “unknown”, "
-                "or “missing”. If information is not supplied, generate reasonable professional generic wording instead. Use km only. "
-                "Write one continuous story block in this order: verified concern -> diagnostic actions/findings -> Root cause line -> "
-                "repair performed -> post-repair verification. Include exactly one root cause line that starts with: Root cause - . "
-                "At the end include exactly these two lines with colons and nothing else in between:\n"
-                "Causal Part: …\n"
-                "Labor Op: …\n"
-                "Do not invent torque values or WSM section numbers. You may say “torqued to specification” and “performed per "
-                "workshop manual procedure”. Do not invent numeric part numbers or labor hours when not provided."
-            )
-            user_prompt = _build_warranty_simple_user_prompt(data)
-            story = _openai_story_call(api_key, model, system_prompt, user_prompt)
-        else:
-            t = _get_templates()
-            story = _openai_story_call(api_key, model, t["system_rules"], _build_prompt(data))
+        t = _get_templates()
+        system_prompt = t["system_rules"]
+        user_prompt = _build_prompt(data)
+        story = _generate_with_validation(api_key, model, system_prompt, user_prompt)
 
         return _resp(200, {"story": story})
     except urllib.error.HTTPError as e:
         err = e.read().decode("utf-8", errors="ignore")
         return _resp(502, {"error": f"OpenAI HTTPError {e.code}", "details": err[:2000]})
     except Exception as e:
-        return _resp(500, {"error": str(e)})
+        return _resp(500, {"error": str(e), "details": "Generation failed"})
