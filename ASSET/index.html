@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How an Engine Works - Detailed Animation</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="layout">
+    <h1>4-Stroke Engine Animation</h1>
+    <p class="intro">This animation shows how intake, compression, power, and exhaust strokes work together inside a gasoline engine.</p>
+
+    <section class="engine-card" aria-label="Animated engine cross section">
+      <div class="cycle-label" aria-live="polite">
+        <span class="stroke intake">Intake</span>
+        <span class="stroke compression">Compression</span>
+        <span class="stroke power">Power</span>
+        <span class="stroke exhaust">Exhaust</span>
+      </div>
+
+      <div class="cylinder">
+        <div class="valves">
+          <div class="valve intake-valve"></div>
+          <div class="spark-plug"></div>
+          <div class="valve exhaust-valve"></div>
+        </div>
+
+        <div class="mixture"></div>
+        <div class="combustion"></div>
+        <div class="piston"></div>
+      </div>
+
+      <div class="rod"></div>
+      <div class="crankshaft-wrap">
+        <div class="crankshaft"></div>
+        <div class="counter-weight"></div>
+      </div>
+    </section>
+
+    <section class="legend" aria-label="Engine component legend">
+      <h2>Components</h2>
+      <ul>
+        <li><span class="dot valve-dot"></span> Intake and exhaust valves control flow in and out of the cylinder.</li>
+        <li><span class="dot spark-dot"></span> Spark plug ignites the compressed air-fuel mixture.</li>
+        <li><span class="dot piston-dot"></span> Piston moves up and down from combustion force.</li>
+        <li><span class="dot crank-dot"></span> Connecting rod and crankshaft convert linear motion to rotation.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

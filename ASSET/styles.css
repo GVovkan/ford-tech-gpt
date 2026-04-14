@@ -1,0 +1,331 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(circle at top, #162238 0%, #0b0f1a 55%, #070a12 100%);
+  color: #e9efff;
+  min-height: 100vh;
+}
+
+.layout {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  letter-spacing: 0.02em;
+}
+
+.intro {
+  max-width: 720px;
+  line-height: 1.5;
+  color: #bac8ef;
+}
+
+.engine-card {
+  position: relative;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border-radius: 20px;
+  border: 1px solid #2e3a5f;
+  background: linear-gradient(180deg, #121c30, #0a1323);
+  display: grid;
+  place-items: center;
+  min-height: 460px;
+  overflow: hidden;
+}
+
+.cycle-label {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stroke {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #5a6a9f;
+  opacity: 0.45;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.stroke.intake {
+  animation: strokeActive 4s linear infinite;
+}
+
+.stroke.compression {
+  animation: strokeActive 4s linear infinite 1s;
+}
+
+.stroke.power {
+  animation: strokeActive 4s linear infinite 2s;
+}
+
+.stroke.exhaust {
+  animation: strokeActive 4s linear infinite 3s;
+}
+
+@keyframes strokeActive {
+  0%, 24% {
+    opacity: 1;
+    border-color: #7fe4ff;
+    box-shadow: 0 0 0 1px #7fe4ff4d;
+  }
+  25%, 100% {
+    opacity: 0.45;
+    border-color: #5a6a9f;
+    box-shadow: none;
+  }
+}
+
+.cylinder {
+  position: relative;
+  width: 220px;
+  height: 280px;
+  border: 4px solid #6f87c8;
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1f2f4f, #18253f);
+}
+
+.valves {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 26px;
+  z-index: 4;
+}
+
+.valve {
+  width: 14px;
+  height: 36px;
+  border-radius: 8px;
+  background: #7cc7ff;
+  animation: valvePulse 4s linear infinite;
+}
+
+.exhaust-valve {
+  background: #ffab7d;
+  animation-delay: 3s;
+}
+
+.spark-plug {
+  width: 10px;
+  height: 34px;
+  border-radius: 6px;
+  background: #e8ebff;
+  box-shadow: 0 0 0 2px #a5b1d6;
+}
+
+@keyframes valvePulse {
+  0%, 8%, 100% {
+    transform: translateY(0);
+  }
+  12%, 20% {
+    transform: translateY(8px);
+  }
+}
+
+.mixture,
+.combustion,
+.piston {
+  position: absolute;
+  left: 20px;
+  width: calc(100% - 40px);
+  border-radius: 10px;
+}
+
+.mixture {
+  bottom: 20px;
+  height: 86px;
+  background: linear-gradient(180deg, #3eb4f8b0, #1f68c8b0);
+  animation: mixturePhase 4s linear infinite;
+}
+
+.combustion {
+  top: 45px;
+  height: 120px;
+  opacity: 0;
+  background: radial-gradient(circle, #ffcf66 0%, #ff7a2f 40%, transparent 70%);
+  animation: burn 4s linear infinite;
+}
+
+.piston {
+  bottom: 25px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #bfccec, #7e92c6);
+  border: 2px solid #e3ecff66;
+  animation: pistonMove 4s linear infinite;
+  z-index: 3;
+}
+
+@keyframes pistonMove {
+  0%   { transform: translateY(0); }
+  25%  { transform: translateY(95px); }
+  50%  { transform: translateY(0); }
+  75%  { transform: translateY(95px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes mixturePhase {
+  0%, 18% {
+    opacity: 0.95;
+    transform: scaleY(1.1);
+  }
+  25%, 43% {
+    opacity: 0.7;
+    transform: scaleY(0.7);
+  }
+  50%, 68% {
+    opacity: 0.15;
+    transform: scaleY(0.45);
+  }
+  75%, 93% {
+    opacity: 0.3;
+    transform: scaleY(0.65);
+  }
+  100% {
+    opacity: 0.95;
+    transform: scaleY(1.1);
+  }
+}
+
+@keyframes burn {
+  0%, 46% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  50%, 62% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  72%, 100% {
+    opacity: 0;
+    transform: scale(0.65);
+  }
+}
+
+.rod {
+  width: 22px;
+  height: 120px;
+  margin-top: -4px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #93a9dd, #5f73aa);
+  animation: rodSwing 4s linear infinite;
+  transform-origin: top center;
+}
+
+@keyframes rodSwing {
+  0%, 50%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(14deg);
+  }
+  75% {
+    transform: rotate(-14deg);
+  }
+}
+
+.crankshaft-wrap {
+  margin-top: 0.4rem;
+  position: relative;
+  width: 150px;
+  height: 150px;
+}
+
+.crankshaft,
+.counter-weight {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.crankshaft {
+  border: 12px solid #6d84bc;
+  box-shadow: inset 0 0 0 3px #c3d1f266;
+  animation: spin 1s linear infinite;
+}
+
+.counter-weight {
+  width: 28px;
+  height: 28px;
+  background: #7fe4ff;
+  top: 10px;
+  left: 61px;
+  border-radius: 50%;
+  animation: orbit 1s linear infinite;
+}
+
+@keyframes orbit {
+  from {
+    transform: rotate(0deg) translateX(53px) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateX(53px) rotate(-360deg);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.legend {
+  margin-top: 1.4rem;
+  background: #0d1628b5;
+  border: 1px solid #2f3d61;
+  border-radius: 16px;
+  padding: 1rem 1.2rem;
+}
+
+.legend h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.legend ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.legend li {
+  line-height: 1.45;
+  color: #d5dfff;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+}
+
+.valve-dot { background: #7cc7ff; }
+.spark-dot { background: #f3f5ff; }
+.piston-dot { background: #95abd8; }
+.crank-dot { background: #7fe4ff; }
