@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 * {
@@ -9,14 +9,9 @@
 body {
   margin: 0;
   font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
-  background:
-    radial-gradient(circle at 15% 20%, #3f5ba84a 0%, transparent 38%),
-    radial-gradient(circle at 82% 12%, #8f3fff3b 0%, transparent 34%),
-    radial-gradient(circle at 48% 88%, #00f0ff24 0%, transparent 42%),
-    radial-gradient(circle at top, #162238 0%, #0b0f1a 55%, #070a12 100%);
-  color: #e9efff;
+  background: #e9edf2;
+  color: #1f2a36;
   min-height: 100vh;
-  animation: skyPulse 12s ease-in-out infinite;
 }
 
 .layout {
@@ -27,60 +22,28 @@ body {
 
 h1 {
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 2.5rem);
-  letter-spacing: 0.02em;
+  font-size: clamp(1.75rem, 3.8vw, 2.4rem);
+  letter-spacing: 0.01em;
+  color: #132030;
 }
 
 .intro {
-  max-width: 720px;
+  max-width: 760px;
   line-height: 1.5;
-  color: #bac8ef;
+  color: #33465b;
 }
 
 .engine-card {
   position: relative;
   margin-top: 1.5rem;
-  padding: 1.5rem;
-  border-radius: 20px;
-  border: 1px solid #2e3a5f;
-  background: linear-gradient(180deg, #121c30, #0a1323);
+  padding: 1.5rem 1.2rem;
+  border-radius: 14px;
+  border: 1px solid #b8c3cf;
+  background: #f8fafc;
   display: grid;
   place-items: center;
   min-height: 460px;
   overflow: hidden;
-  isolation: isolate;
-}
-
-.engine-card::before,
-.engine-card::after {
-  content: "";
-  position: absolute;
-  inset: -35%;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.engine-card::before {
-  background:
-    conic-gradient(from 0deg,
-      #00e6ff00 0deg,
-      #7fe4ff50 60deg,
-      #dd79ff40 130deg,
-      #7fe4ff50 220deg,
-      #00e6ff00 360deg);
-  filter: blur(30px);
-  animation: auroraSpin 14s linear infinite;
-}
-
-.engine-card::after {
-  background:
-    radial-gradient(circle at 25% 35%, #ffffff45 0 2px, transparent 4px),
-    radial-gradient(circle at 72% 44%, #7fe4ff62 0 3px, transparent 5px),
-    radial-gradient(circle at 60% 18%, #cda8ff52 0 2px, transparent 5px),
-    radial-gradient(circle at 40% 78%, #7fe4ff40 0 2px, transparent 5px),
-    radial-gradient(circle at 12% 64%, #ffffff2e 0 1px, transparent 3px);
-  mix-blend-mode: screen;
-  animation: sparkleFloat 7s ease-in-out infinite;
 }
 
 .cycle-label {
@@ -96,40 +59,42 @@ h1 {
 }
 
 .stroke {
-  padding: 0.35rem 0.75rem;
+  padding: 0.35rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid #5a6a9f;
-  opacity: 0.45;
+  border: 1px solid #aab6c2;
+  background: #f2f5f8;
+  opacity: 0.65;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  color: #2e3d4e;
 }
 
 .stroke.intake {
-  animation: strokeActive 4s linear infinite;
+  animation: strokeActive 8s linear infinite;
 }
 
 .stroke.compression {
-  animation: strokeActive 4s linear infinite 1s;
+  animation: strokeActive 8s linear infinite 2s;
 }
 
 .stroke.power {
-  animation: strokeActive 4s linear infinite 2s;
+  animation: strokeActive 8s linear infinite 4s;
 }
 
 .stroke.exhaust {
-  animation: strokeActive 4s linear infinite 3s;
+  animation: strokeActive 8s linear infinite 6s;
 }
 
 @keyframes strokeActive {
   0%, 24% {
     opacity: 1;
-    border-color: #7fe4ff;
-    box-shadow: 0 0 0 1px #7fe4ff4d;
+    border-color: #5f7288;
+    background: #dfe8f1;
   }
   25%, 100% {
-    opacity: 0.45;
-    border-color: #5a6a9f;
-    box-shadow: none;
+    opacity: 0.65;
+    border-color: #aab6c2;
+    background: #f2f5f8;
   }
 }
 
@@ -137,33 +102,12 @@ h1 {
   position: relative;
   width: 220px;
   height: 280px;
-  border: 4px solid #6f87c8;
-  border-radius: 20px;
+  border: 4px solid #647b90;
+  border-radius: 18px;
   overflow: hidden;
-  background: linear-gradient(180deg, #1f2f4f, #18253f);
-  box-shadow:
-    0 0 0 1px #b9c9ff22,
-    0 24px 45px #00000070,
-    inset 0 0 34px #9fb5ff2d;
+  background: linear-gradient(180deg, #dde4eb, #ced8e2);
+  box-shadow: 0 18px 28px rgba(36, 49, 63, 0.16);
   z-index: 2;
-}
-
-.cylinder::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: 20px;
-  border: 2px solid transparent;
-  background:
-    linear-gradient(#ffffff14, #ffffff00) padding-box,
-    linear-gradient(140deg, #8fd6ff8f, #a383ff40, #8fd6ff8f) border-box;
-  -webkit-mask:
-    linear-gradient(#000 0 0) padding-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  animation: chromeSweep 5s linear infinite;
 }
 
 .valves {
@@ -181,29 +125,30 @@ h1 {
   width: 14px;
   height: 36px;
   border-radius: 8px;
-  background: #7cc7ff;
-  animation: valvePulse 4s linear infinite;
+  border: 1px solid #6f8c9f;
+  background: #8ab2c9;
+  animation: valvePulse 8s linear infinite;
 }
 
 .exhaust-valve {
-  background: #ffab7d;
-  animation-delay: 3s;
+  background: #c59683;
+  animation-delay: 6s;
 }
 
 .spark-plug {
   width: 10px;
   height: 34px;
   border-radius: 6px;
-  background: #e8ebff;
-  box-shadow: 0 0 0 2px #a5b1d6;
+  border: 1px solid #8895a2;
+  background: #f2f5f7;
 }
 
 @keyframes valvePulse {
-  0%, 8%, 100% {
+  0%, 4%, 100% {
     transform: translateY(0);
   }
-  12%, 20% {
-    transform: translateY(8px);
+  8%, 16% {
+    transform: translateY(7px);
   }
 }
 
@@ -213,34 +158,32 @@ h1 {
   position: absolute;
   left: 20px;
   width: calc(100% - 40px);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .mixture {
   bottom: 20px;
   height: 86px;
-  background: linear-gradient(180deg, #3eb4f8b0, #1f68c8b0);
-  animation: mixturePhase 4s linear infinite;
+  background: linear-gradient(180deg, #8fc3e0, #669fc7);
+  animation: mixturePhase 8s linear infinite;
 }
 
 .combustion {
   top: 45px;
   height: 120px;
   opacity: 0;
-  background: radial-gradient(circle, #ffcf66 0%, #ff7a2f 40%, transparent 70%);
-  animation: burn 4s linear infinite;
-  filter: saturate(1.45) brightness(1.2);
+  background: radial-gradient(circle, #ffd598 0%, #d98e4a 45%, transparent 70%);
+  animation: burn 8s linear infinite;
 }
 
 .piston {
   bottom: 25px;
   height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #bfccec, #7e92c6);
-  border: 2px solid #e3ecff66;
-  animation: pistonMove 4s linear infinite;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #a9b6c5, #808f9f);
+  border: 1px solid #6d7885;
+  animation: pistonMove 8s linear infinite;
   z-index: 3;
-  box-shadow: 0 0 28px #bad0ff4f;
 }
 
 @keyframes pistonMove {
@@ -252,52 +195,52 @@ h1 {
 }
 
 @keyframes mixturePhase {
-  0%, 18% {
-    opacity: 0.95;
-    transform: scaleY(1.1);
+  0%, 22% {
+    opacity: 0.85;
+    transform: scaleY(1.05);
   }
-  25%, 43% {
-    opacity: 0.7;
-    transform: scaleY(0.7);
+  25%, 47% {
+    opacity: 0.62;
+    transform: scaleY(0.72);
   }
-  50%, 68% {
-    opacity: 0.15;
-    transform: scaleY(0.45);
+  50%, 72% {
+    opacity: 0.2;
+    transform: scaleY(0.48);
   }
-  75%, 93% {
-    opacity: 0.3;
-    transform: scaleY(0.65);
+  75%, 97% {
+    opacity: 0.4;
+    transform: scaleY(0.68);
   }
   100% {
-    opacity: 0.95;
-    transform: scaleY(1.1);
+    opacity: 0.85;
+    transform: scaleY(1.05);
   }
 }
 
 @keyframes burn {
-  0%, 46% {
+  0%, 48% {
     opacity: 0;
-    transform: scale(0.6);
+    transform: scale(0.64);
   }
-  50%, 62% {
-    opacity: 0.9;
-    transform: scale(1);
+  50%, 60% {
+    opacity: 0.72;
+    transform: scale(0.98);
   }
-  72%, 100% {
+  65%, 100% {
     opacity: 0;
-    transform: scale(0.65);
+    transform: scale(0.7);
   }
 }
 
 .rod {
-  width: 22px;
+  width: 20px;
   height: 120px;
   margin-top: -4px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #93a9dd, #5f73aa);
-  animation: rodSwing 4s linear infinite;
+  border-radius: 12px;
+  border: 1px solid #637282;
+  background: linear-gradient(180deg, #9fabb8, #7a8999);
+  animation: rodSwing 8s linear infinite;
   transform-origin: top center;
-  box-shadow: 0 0 18px #8ca7e04f;
   z-index: 1;
 }
 
@@ -306,10 +249,10 @@ h1 {
     transform: rotate(0deg);
   }
   25% {
-    transform: rotate(14deg);
+    transform: rotate(12deg);
   }
   75% {
-    transform: rotate(-14deg);
+    transform: rotate(-12deg);
   }
 }
 
@@ -328,31 +271,27 @@ h1 {
 }
 
 .crankshaft {
-  border: 12px solid #6d84bc;
-  box-shadow: inset 0 0 0 3px #c3d1f266;
-  animation: spin 1s linear infinite;
-  filter: drop-shadow(0 0 14px #90beff85);
+  border: 10px solid #6b7f95;
+  box-shadow: inset 0 0 0 2px #c4ced8;
+  animation: spin 2s linear infinite;
 }
 
 .counter-weight {
-  width: 28px;
-  height: 28px;
-  background: #7fe4ff;
-  top: 10px;
-  left: 61px;
+  width: 24px;
+  height: 24px;
+  background: #6f8599;
+  top: 12px;
+  left: 63px;
   border-radius: 50%;
-  animation: orbit 1s linear infinite;
-  box-shadow:
-    0 0 18px #7fe4ffbf,
-    0 0 36px #7fe4ff55;
+  animation: orbit 2s linear infinite;
 }
 
 @keyframes orbit {
   from {
-    transform: rotate(0deg) translateX(53px) rotate(0deg);
+    transform: rotate(0deg) translateX(52px) rotate(0deg);
   }
   to {
-    transform: rotate(360deg) translateX(53px) rotate(-360deg);
+    transform: rotate(360deg) translateX(52px) rotate(-360deg);
   }
 }
 
@@ -364,15 +303,16 @@ h1 {
 
 .legend {
   margin-top: 1.4rem;
-  background: #0d1628b5;
-  border: 1px solid #2f3d61;
-  border-radius: 16px;
+  background: #f6f9fc;
+  border: 1px solid #c1ccd8;
+  border-radius: 12px;
   padding: 1rem 1.2rem;
 }
 
 .legend h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
+  color: #1e2c3c;
 }
 
 .legend ul {
@@ -384,7 +324,7 @@ h1 {
 
 .legend li {
   line-height: 1.45;
-  color: #d5dfff;
+  color: #2f4254;
 }
 
 .dot {
@@ -395,59 +335,7 @@ h1 {
   margin-right: 0.35rem;
 }
 
-.valve-dot { background: #7cc7ff; }
-.spark-dot { background: #f3f5ff; }
-.piston-dot { background: #95abd8; }
-.crank-dot { background: #7fe4ff; }
-
-@keyframes skyPulse {
-  0%, 100% {
-    background-position: 0% 0%;
-    filter: saturate(1);
-  }
-  50% {
-    background-position: 30% 10%;
-    filter: saturate(1.15);
-  }
-}
-
-@keyframes auroraSpin {
-  from {
-    transform: rotate(0deg) scale(1);
-    opacity: 0.45;
-  }
-  50% {
-    transform: rotate(180deg) scale(1.1);
-    opacity: 0.75;
-  }
-  to {
-    transform: rotate(360deg) scale(1);
-    opacity: 0.45;
-  }
-}
-
-@keyframes sparkleFloat {
-  0%, 100% {
-    opacity: 0.4;
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    opacity: 0.9;
-    transform: translateY(-10px) scale(1.06);
-  }
-}
-
-@keyframes chromeSweep {
-  0% {
-    filter: brightness(1);
-    transform: translateX(-12px);
-  }
-  50% {
-    filter: brightness(1.4);
-    transform: translateX(12px);
-  }
-  100% {
-    filter: brightness(1);
-    transform: translateX(-12px);
-  }
-}
+.valve-dot { background: #8ab2c9; }
+.spark-dot { background: #f2f5f7; border: 1px solid #9faab6; }
+.piston-dot { background: #96a4b1; }
+.crank-dot { background: #6f8599; }
