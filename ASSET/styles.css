@@ -9,9 +9,14 @@
 body {
   margin: 0;
   font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
-  background: radial-gradient(circle at top, #162238 0%, #0b0f1a 55%, #070a12 100%);
+  background:
+    radial-gradient(circle at 15% 20%, #3f5ba84a 0%, transparent 38%),
+    radial-gradient(circle at 82% 12%, #8f3fff3b 0%, transparent 34%),
+    radial-gradient(circle at 48% 88%, #00f0ff24 0%, transparent 42%),
+    radial-gradient(circle at top, #162238 0%, #0b0f1a 55%, #070a12 100%);
   color: #e9efff;
   min-height: 100vh;
+  animation: skyPulse 12s ease-in-out infinite;
 }
 
 .layout {
@@ -43,6 +48,39 @@ h1 {
   place-items: center;
   min-height: 460px;
   overflow: hidden;
+  isolation: isolate;
+}
+
+.engine-card::before,
+.engine-card::after {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.engine-card::before {
+  background:
+    conic-gradient(from 0deg,
+      #00e6ff00 0deg,
+      #7fe4ff50 60deg,
+      #dd79ff40 130deg,
+      #7fe4ff50 220deg,
+      #00e6ff00 360deg);
+  filter: blur(30px);
+  animation: auroraSpin 14s linear infinite;
+}
+
+.engine-card::after {
+  background:
+    radial-gradient(circle at 25% 35%, #ffffff45 0 2px, transparent 4px),
+    radial-gradient(circle at 72% 44%, #7fe4ff62 0 3px, transparent 5px),
+    radial-gradient(circle at 60% 18%, #cda8ff52 0 2px, transparent 5px),
+    radial-gradient(circle at 40% 78%, #7fe4ff40 0 2px, transparent 5px),
+    radial-gradient(circle at 12% 64%, #ffffff2e 0 1px, transparent 3px);
+  mix-blend-mode: screen;
+  animation: sparkleFloat 7s ease-in-out infinite;
 }
 
 .cycle-label {
@@ -54,6 +92,7 @@ h1 {
   gap: 0.5rem;
   flex-wrap: wrap;
   justify-content: center;
+  z-index: 5;
 }
 
 .stroke {
@@ -102,6 +141,29 @@ h1 {
   border-radius: 20px;
   overflow: hidden;
   background: linear-gradient(180deg, #1f2f4f, #18253f);
+  box-shadow:
+    0 0 0 1px #b9c9ff22,
+    0 24px 45px #00000070,
+    inset 0 0 34px #9fb5ff2d;
+  z-index: 2;
+}
+
+.cylinder::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  background:
+    linear-gradient(#ffffff14, #ffffff00) padding-box,
+    linear-gradient(140deg, #8fd6ff8f, #a383ff40, #8fd6ff8f) border-box;
+  -webkit-mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: chromeSweep 5s linear infinite;
 }
 
 .valves {
@@ -167,6 +229,7 @@ h1 {
   opacity: 0;
   background: radial-gradient(circle, #ffcf66 0%, #ff7a2f 40%, transparent 70%);
   animation: burn 4s linear infinite;
+  filter: saturate(1.45) brightness(1.2);
 }
 
 .piston {
@@ -177,6 +240,7 @@ h1 {
   border: 2px solid #e3ecff66;
   animation: pistonMove 4s linear infinite;
   z-index: 3;
+  box-shadow: 0 0 28px #bad0ff4f;
 }
 
 @keyframes pistonMove {
@@ -233,6 +297,8 @@ h1 {
   background: linear-gradient(180deg, #93a9dd, #5f73aa);
   animation: rodSwing 4s linear infinite;
   transform-origin: top center;
+  box-shadow: 0 0 18px #8ca7e04f;
+  z-index: 1;
 }
 
 @keyframes rodSwing {
@@ -265,6 +331,7 @@ h1 {
   border: 12px solid #6d84bc;
   box-shadow: inset 0 0 0 3px #c3d1f266;
   animation: spin 1s linear infinite;
+  filter: drop-shadow(0 0 14px #90beff85);
 }
 
 .counter-weight {
@@ -275,6 +342,9 @@ h1 {
   left: 61px;
   border-radius: 50%;
   animation: orbit 1s linear infinite;
+  box-shadow:
+    0 0 18px #7fe4ffbf,
+    0 0 36px #7fe4ff55;
 }
 
 @keyframes orbit {
@@ -329,3 +399,55 @@ h1 {
 .spark-dot { background: #f3f5ff; }
 .piston-dot { background: #95abd8; }
 .crank-dot { background: #7fe4ff; }
+
+@keyframes skyPulse {
+  0%, 100% {
+    background-position: 0% 0%;
+    filter: saturate(1);
+  }
+  50% {
+    background-position: 30% 10%;
+    filter: saturate(1.15);
+  }
+}
+
+@keyframes auroraSpin {
+  from {
+    transform: rotate(0deg) scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+    opacity: 0.75;
+  }
+  to {
+    transform: rotate(360deg) scale(1);
+    opacity: 0.45;
+  }
+}
+
+@keyframes sparkleFloat {
+  0%, 100% {
+    opacity: 0.4;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateY(-10px) scale(1.06);
+  }
+}
+
+@keyframes chromeSweep {
+  0% {
+    filter: brightness(1);
+    transform: translateX(-12px);
+  }
+  50% {
+    filter: brightness(1.4);
+    transform: translateX(12px);
+  }
+  100% {
+    filter: brightness(1);
+    transform: translateX(-12px);
+  }
+}
